@@ -1,0 +1,30 @@
+'\" Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+'\"
+'\" Licensed under the Apache License, Version 2.0 (the "License");
+'\" you may not use this code except in compliance
+'\" with the License. You may obtain a copy of the License
+'\" at http://www.apache.org/licenses/LICENSE-2.0
+'\" 
+'\" Unless required by applicable law or agreed to in writing, software 
+'\" distributed under the License is distributed on an "AS IS" BASIS, 
+'\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+'\" implied. See the License for the specific language governing 
+'\" permissions and limitations under the License.
+.TH list_masters 1PG {{DATE}} OpenECOMP OpenECOMP
+.SH NAME
+list_masters - loop through the nodes in the cluster, using a remote call to determine if any are a master. 
+.SH SYNOPSIS
+list_masters
+.SH DESCRIPTION
+List_masters loops through the nodes in the cluster, using a remote call to the iDNS-responder running on each server to determine if any are a master.
+The names of the masters are printed (there should only be one).
+.SS Exit Codes
+.HP 20
+0
+one master exists and is running
+.HP 20
+1
+no masters exist
+.HP 20
+2
+more than one master exist

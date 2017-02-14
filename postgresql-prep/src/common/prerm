@@ -1,0 +1,17 @@
+echo STARTING $0 $(date)
+
+set -x
+id
+
+if [ -d /opt/app/postgresql-9.5.2 ]
+then
+    rm -f $INSTALL_ROOT/opt/app/platform/postgres/pglogs.cron
+    su postgres -c "$INSTALL_ROOT/opt/app/platform/bin/mergeCron"
+    rmdir $INSTALL_ROOT/opt/app/platform/postgres
+    rm -f $INSTALL_ROOT/opt/app/platform/init.d/pgaas
+    rm -f $INSTALL_ROOT/opt/app/platform/rc.d/K20pgaas
+    rm -f $INSTALL_ROOT/opt/app/platform/rc.d/S20pgaas
+fi
+
+rm -f $INSTALL_ROOT/etc/init/pgaas-idns.conf $INSTALL_ROOT/etc/init/pgaas-init.conf
+rm -f $INSTALL_ROOT/etc/logrotate.d/pgaas

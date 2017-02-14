@@ -1,0 +1,188 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+defdbname="test"
+defprefix="tst"
+dbname="$defdbname"
+prefix="$defprefix"
+
+usage()
+{
+    exec 1>&2
+    [ -n $# ] && echo " $@"
+    echo "Usage: $0 -A pswd -U pswd -V pswd [-d dbname] [-p prefix] [-P] [-v]"
+    echo " -d dbname - database name, defaults to '$defdbname'"
+    echo " -p prefix - prefix of usernames, defaults to '$defprefix'"
+    echo " -A pswd - password for admin role"
+    echo " -U pswd - password for user role"
+    echo " -V pswd - password for viewer role"
+    echo " -v verbose"
+    echo " -P do not print VERIFIED"
+    exit 1
+}
+
+PRINTVERIFIED=:
+VERBOSE=false
+PSWDA=
+PSWDU=
+PSWDV=
+while getopts A:d:p:PU:vV: c
+do
+    case $c in
+	A ) PSWDA="$OPTARG" ;;
+	d ) dbname="$OPTARG" ;;
+	p ) prefix="$OPTARG" ;;
+        P ) PRINTVERIFIED=false ;;
+	U ) PSWDU="$OPTARG" ;;
+        v ) VERBOSE=: ;;
+	V ) PSWDV="$OPTARG" ;;
+        '?' ) usage ;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+[ -n "$PSWDA" ] || usage "-A is missing"
+[ -n "$PSWDU" ] || usage "-U is missing"
+[ -n "$PSWDV" ] || usage "-V is missing"
+
+admin="${prefix}_admin"
+user="${prefix}_user"
+viewer="${prefix}_viewer"
+
+TMP1=$(mktemp /tmp/vpp1.$$.XXXXXXXXXX)
+TMP2=$(mktemp /tmp/vpp2.$$.XXXXXXXXXX)
+trap 'rm -f $TMP1 $TMP2' 0 1 2 3 15
+
+VERIFIEDCOUNT=0
+FAILEDCOUNT=0
+TOTALCOUNT=0
+
+verified()
+{
+    (( VERIFIEDCOUNT = VERIFIEDCOUNT + 1 ))
+    (( TOTALCOUNT = TOTALCOUNT + 1 ))
+    $PRINTVERIFIED && echo "VERIFIED: $@"
+}
+
+failed()
+{
+    (( FAILEDCOUNT = FAILEDCOUNT + 1 ))
+    (( TOTALCOUNT = TOTALCOUNT + 1 ))
+    echo "FAILED: $@"
+}
+
+tabtext()
+{
+    echo "$@" | sed 's/^/	/'
+}
+
+tabfile()
+{
+    sed 's/^/	/' "$@"
+}
+
+runtests()
+{
+    name="$1"
+    pswd="$2"
+    while read cmd; read expected
+    do
+      echo "$cmd" | psql --host=localhost --dbname="$dbname" --username="$name" > $TMP1 2>&1
+      if fgrep "$expected" $TMP1 > /dev/null
+      then verified "user $name executed $cmd, expected $expected"
+	    $VERBOSE && echo -e "\tGot:" && tabfile "$TMP1"
+      else failed "user $name executed $cmd, expected $expected, got:"; tabfile $TMP1
+      fi
+    done
+}
+
+psql --host=localhost --dbname="$dbname" --username="$admin" <<EOF > /dev/null
+	drop table if exists foo;
+	drop table if exists foou;
+	drop table if exists fooud;
+	drop table if exists foouc;
+	drop table if exists foov;
+	drop table if exists foovd;
+	drop table if exists foovc;
+EOF
+
+# tests to be run as admin user
+cat <<-EOF > $TMP2
+	create table foo ( fooint int ); /* table for admin to add and drop */
+	CREATE TABLE
+	insert into foo (fooint) values (1); /* admin can add values */
+	INSERT 0 1
+	select count(*) from foo; /* admin can select */
+	(1 row)
+	delete from foo where fooint = '1'; /* admin can delete */
+	DELETE 1 
+	select * from foo; /* admin can select */
+	(0 rows)
+	drop table foo; /* admin can drop */
+	DROP TABLE
+	create table foou (fooint int ); /* table for user to add/delete to */
+	CREATE TABLE
+	create table fooud (fooint int ); /* table for user to try dropping */
+	CREATE TABLE
+	create table foov (fooint int ); /* table for viewer to try adding/deleting from */
+	CREATE TABLE
+	create table foovd (fooint int ); /* table for viewer to try dropping */
+	CREATE TABLE
+EOF
+runtests "$admin" "$PWDA" < $TMP2
+
+# tests to be run as writer
+cat <<-EOF > $TMP2
+	create table foouc ( fooint int ); /* user cannot create a table */
+	ERROR:
+	drop table fooud; /* user cannot drop a table */
+	ERROR:
+	insert into foou (fooint) values (1); /* user can add values */
+	INSERT 0 1
+	select count(*) from foou; /* user can select values */
+	(1 row)
+	insert into foou (fooint) values (2); /* user can add values */
+	INSERT 0 1
+	select * from foou; /* user can select values */
+	(2 rows)
+	delete from foou where fooint = '2'; /* user can delete values */
+	DELETE 1 
+	select * from foou; /* user can select values */
+	(1 row)
+EOF
+runtests "$user" "$PWDU" < $TMP2
+
+# tests to be run as read-only
+cat <<-EOF > $TMP2
+	create table foovc ( fooint int ); /* user cannot create a table */
+	ERROR:
+	drop table foovd; /* user cannot drop a table */
+	ERROR:
+	insert into foov (fooint) values (1); /* user can add values */
+	ERROR:
+	select count(*) from foov; /* user can select values */
+	(1 row)
+	insert into foov (fooint) values (2); /* user can add values */
+	ERROR:
+	select * from foov; /* user can select values */
+	(0 rows)
+	delete from foov where fooint = '2'; /* user can delete values */
+	ERROR: 
+	select * from foov; /* user can select values */
+	(0 rows)
+EOF
+runtests "$viewer" "$PWDV" < $TMP2
+
+echo "$VERIFIEDCOUNT tests passed, $FAILEDCOUNT tests failed, $TOTALCOUNT total tests run"

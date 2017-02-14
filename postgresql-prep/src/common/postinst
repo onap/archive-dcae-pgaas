@@ -1,0 +1,177 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+exec 1> /tmp/postgresql-prep.out 2>&1
+set -x
+if [ -d /opt/app/postgresql-9.5.2 ]
+then export OPENECOMP=false NOTOPENECOMP=true
+else export OPENECOMP=true NOTOPENECOMP=false
+fi
+
+echo STARTING $0 $(date)
+umask 0
+echo STARTING $0 $(date) >> /tmp/pgaas.inst.report
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+id
+umask 022
+
+TMP=$( mktemp /tmp/pgprep.$$.XXXXXXXXXX )
+#### TODO remove comment     trap 'rm -f $TMP' 0 1 2 3 15
+
+if $OPENECOMP
+then INSTALL_ROOT=
+fi
+
+if [ -f /tmp/postgres.conf ]
+then
+    # DRTR_NODE_KSTOREFILE: /opt/app/dcae-certificate/keystore.jks
+    # DRTR_NODE_KSTOREPASS: "No Certificate"
+    # DRTR_NODE_PVTKEYPASS: "No Certificate"
+    # PG_NODES : uiopmno1qwpstg00.research.example.com|asbczw1vepstg00.dcae.simpledemo.openecomp.org
+    # PG_JAVA_HOME : /opt/app/java/jdk/jdk170
+    # PG_CLUSTER : global
+    sed -e 's/ *: */="/' -e 's/$/"/' -e 's/=""/="/' -e 's/""$/"/' < /tmp/postgres.conf > $TMP
+    . $TMP
+fi
+
+[ -n "$PG_NODES" ] || die "PG_NODES is not set"
+[ -n "$PG_CLUSTER" ] || die "PG_CLUSTER is not set"
+[ -n "$DRTR_NODE_KSTOREFILE" ] || die "DRTR_NODE_KSTOREFILE is not set"
+[ -n "$DRTR_NODE_KSTOREPASS" ] || die "DRTR_NODE_KSTOREPASS is not set"
+[ -n "$DRTR_NODE_PVTKEYPASS" ] || die "DRTR_NODE_PVTKEYPASS is not set"
+
+# create various directories with proper permissions
+mkdir -p ${INSTALL_ROOT}/dbroot/pgdata/main \
+    ${INSTALL_ROOT}/dbroot/pgdata/pgaas \
+    ${INSTALL_ROOT}/dbroot/pglogs/main \
+    ${INSTALL_ROOT}/var/run/postgresql \
+    ${INSTALL_ROOT}/opt/app/log/postgresql/init \
+    ${INSTALL_ROOT}/opt/app/log/postgresql/server \
+    ${INSTALL_ROOT}/opt/app/log/postgresql/idns 
+chmod 700 ${INSTALL_ROOT}/dbroot/pgdata/pgaas 
+chmod 700 ${INSTALL_ROOT}/dbroot/pglogs
+chmod 700 ${INSTALL_ROOT}/dbroot/pgdata/main
+
+if $OPENECOMP
+then
+    mv /var/lib/postgresql/9.5/main /var/lib/postgresql/9.5/main.sv
+    ln -s /dbroot/dbdata/main /var/lib/postgresql/9.5/main
+
+    mv /etc/postgresql/9.5/main /etc/postgresql/9.5/main.sv
+    ln -s /opt/app/postgresql-config/main /etc/postgresql/9.5/main
+
+fi
+
+chown -R postgres:postgres ${INSTALL_ROOT}/dbroot ${INSTALL_ROOT}/var/run/postgresql ${INSTALL_ROOT}/opt/app/log/postgresql ${INSTALL_ROOT}/opt/app/log/postgresql/idns
+
+chmod 711 ~postgres
+
+# fix up the CDF package so that it works
+ln -sf /opt/app/cdf /opt/cdf
+
+# and save some values within
+(
+    echo "allpgnodes=\"$PG_NODES\""
+    case "$PG_CLUSTER" in
+	global | central )
+	    cnodes=$( ${INSTALL_ROOT}/opt/app/postgresql-prep/bin/gen-repmgr-info -n "$PG_NODES" -p )
+	    echo "pgnodes=\"$cnodes\""
+	    echo "cluster=central"
+	    shanodes=$( ${INSTALL_ROOT}/opt/app/postgresql-prep/bin/gen-repmgr-info -n "$PG_NODES" -P )
+	    ;;
+        site | edge )
+	    HOSTNAME=$( hostname -f )
+	    lnodes=$( ${INSTALL_ROOT}/opt/app/postgresql-prep/bin/gen-repmgr-info -n "$PG_NODES" -e $HOSTNAME )
+	    echo "pgnodes=\"$lnodes\""
+	    if [ -z "$lnodes" ]
+	    then die "Cannot determine the name of the system. hostname -f ($HOSTNAME) is not found in PG_NODES ($PG_NODES)"
+	    fi
+	    shanodes=$( ${INSTALL_ROOT}/opt/app/postgresql-prep/bin/gen-repmgr-info -n "$PG_NODES" -E $HOSTNAME )
+	    echo "cluster=edge"
+	    ;;
+        * ) die "Cannot determine what type of cluster this is. PG_CLUSTER should be either 'global/central' or 'site/edge'" ;;
+    esac
+
+    echo "drtr_node_kstorefile=$DRTR_NODE_KSTOREFILE"
+    echo "ENCRYPTME.AES.drtr_node_kstorepass='$DRTR_NODE_KSTOREPASS'" | ${INSTALL_ROOT}/opt/app/cdf/bin/setencryptedvalues
+    echo "ENCRYPTME.AES.drtr_node_pvtkeypass='$DRTR_NODE_PVTKEYPASS'" | ${INSTALL_ROOT}/opt/app/cdf/bin/setencryptedvalues
+    echo "ENCRYPTME.AES.wgetpswd=$shanodes" | ${INSTALL_ROOT}/opt/app/cdf/bin/setencryptedvalues
+) >> ${INSTALL_ROOT}/opt/app/cdf/lib/cdf.cfg
+
+# install the init scripts for postgresql
+# init.d-pgaas init-pgaas-idns.conf init-pgaas-init.conf logrotate
+
+INIT=${INSTALL_ROOT}/opt/app/postgresql-prep/init
+
+if $OPENECOMP
+then
+    su postgres -c "crontab $INIT/pglogs.cron"
+
+    # no need to create the /var/run directory because postgresql package already does it
+
+    # install the init script for iDNS
+    cp $INIT/systemd-pgaas-idns.service /lib/systemd/system/pgaas-idns.service
+    systemctl stop pgaas-idns 
+    sleep 1
+    systemctl start pgaas-idns 
+
+else
+    INITDEST=${INSTALL_ROOT}/opt/app/platform/init.d/pgaas
+    cp $INIT/init.d-pgaas $INITDEST
+    chown postgres:postgres $INITDEST
+    chmod 755 $INITDEST
+
+    cd ${INSTALL_ROOT}/opt/app/platform/rc.d
+    ln -sf ../init.d/pgaas K20pgaas
+    ln -sf ../init.d/pgaas S20pgaas
+
+    CRONDIR=${INSTALL_ROOT}/opt/app/platform/cron/postgres
+    mkdir $CRONDIR
+    chown postgres:postgres $CRONDIR
+    chmod 755 $CRONDIR
+    cp $INIT/pglogs.cron $CRONDIR/pglogs.cron
+    su postgres -c "sh -x ${INSTALL_ROOT}/opt/app/platform/bin/mergeCron"
+
+    # install the init script for init
+    cp $INIT/init-pgaas-init.conf ${INSTALL_ROOT}/etc/init/pgaas-init.conf
+    service pgaas-init stop
+    sleep 1
+    service pgaas-init start
+
+    # install the init script for iDNS
+    cp $INIT/init-pgaas-idns.conf ${INSTALL_ROOT}/etc/init/pgaas-idns.conf
+    service pgaas-idns stop
+    sleep 1
+    service pgaas-idns start
+fi
+
+cp $INIT/logrotate ${INSTALL_ROOT}/etc/logrotate.d/pgaas
+chown root:root ${INSTALL_ROOT}/etc/logrotate.d/pgaas
+chmod 644 ${INSTALL_ROOT}/etc/logrotate.d/pgaas
+
+echo ENDING $0 $(date)
+echo ENDING $0 $(date) >> /tmp/pgaas.inst.report
+if $NOTOPENECOMP
+then sed -n '/^STARTING/,/^ENDING/p' `dirname $0`/../../proc_out >> /tmp/pgaas.inst.report 
+fi

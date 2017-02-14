@@ -1,0 +1,97 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+# NAME
+#	makecerts - Create elf-signed certificates for PostgreSQL
+#
+# USAGE
+#	makecerts [--force-overwrite]
+#
+# FILES
+#	/opt/app/postgresql-config/etc
+#		ssleay.cnf - template
+#	/opt/app/postgresql-config/lib
+#		ssl-cert-snakeoil.pem - public key
+#		ssl-cert-snakeoil.key - private key
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+if [ -d ${INSTALL_ROOT}/opt/app/postgresql-config ]
+then dir=${INSTALL_ROOT}/opt/app/postgresql-config
+else dir=${INSTALL_ROOT}/opt/app/postgresql-config-9.5.2
+fi
+etcdir=$dir/etc
+libdir=$dir/lib
+template="$etcdir/ssleay.cnf"
+
+usage()
+{
+    exec 1>&2
+    echo "Usage: $0 [--force-overwrite]"
+    echo "Create self-signed certificates for $dir"
+    exit 1
+}
+
+if [ -f "$libdir/ssl-cert-snakeoil.pem" ] && [ -f "$libdir/ssl-cert-snakeoil.key" ]; then
+    if [ "$1" != "--force-overwrite" ]; then
+	 exit 0
+    fi
+fi
+
+# make_snakeoil
+
+if ! HostName="$(hostname -f)" ; then
+    HostName="$(hostname)"
+    echo "$0: Could not get FQDN, using \"$HostName\"."
+    echo "$0: You may want to fix your /etc/hosts and/or DNS setup and run"
+    echo "$0: '$0 --force-overwrite'"
+    echo "$0: again."
+fi
+if [ ${#HostName} -gt 64 ] ; then
+    AltName="DNS:$HostName"
+    HostName="$(hostname)"
+fi
+
+
+TMPFILE="$(mktemp /tmp/tmp.mc1.XXXXXXXXXX)" || die mktemp failed
+TMPOUT="$(mktemp /tmp/tmp.mc2.XXXXXXXXXX)"  || die mktemp failed
+
+trap "rm -f $TMPFILE $TMPOUT" EXIT 1 2 3 15
+
+# create_temporary_cnf
+    sed -e s#@HostName@#"$HostName"# $template > $TMPFILE
+    [ -z "$AltName" ] || echo "subjectAltName=$AltName" >> $TMPFILE
+
+# create the certificate.
+
+if ! openssl req -config $TMPFILE -new -x509 -days 3650 -nodes \
+    -out $libdir/ssl-cert-snakeoil.pem \
+    -keyout $libdir/ssl-cert-snakeoil.key > $TMPOUT 2>&1
+then
+    echo Could not create certificate. Openssl output was: >&2
+    cat $TMPOUT >&2
+    die openssl failed
+fi
+chmod 644 $libdir/ssl-cert-snakeoil.pem
+chmod 600 $libdir/ssl-cert-snakeoil.key
+# hash symlink
+ln -sf ssl-cert-snakeoil.pem $libdir/$(openssl x509 -hash -noout -in $libdir/ssl-cert-snakeoil.pem)

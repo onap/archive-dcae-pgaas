@@ -1,0 +1,95 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+# update a secondary database
+set -x
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+[ -n "$MASTER" ] || die "MASTER is not set"
+[ -n "$PGDIR" ] || die "PGDIR is not set"
+[ -n "$DBROOT" ] || die "DBROOT is not set"
+[ -n "$CFGDIR" ] || die "CFGDIR is not set"
+
+cd $CFGDIR/main || die "Cannot cd $CFGDIR/main"
+
+PATH=${INSTALL_ROOT}/opt/app/postgresql-prep/bin:$CFGDIR/etc:$PGDIR/bin:$PATH
+
+umask 077
+TMP=$(mktemp /tmp/tmp.uds1.XXXXXXXXXX)
+trap 'rm -f $TMP' 0 1 2 3 15
+
+# update postgresql.conf - got new ones
+# update pg_hba.conf - got new ones
+# set up repmgr.conf - in common
+
+# replace/update recovery.conf
+if [ -f $DBROOT/recovery.conf ];then mv $DBROOT/recovery.conf $DBROOT/recovery.conf.upgraded;fi
+$CFGDIR/etc/gen-recovery.conf
+
+# wait until master DB is active and has repmgr available
+max=40
+for s in `seq $max`
+do
+    echo "$s of $max: Asking master $MASTER if repmgr is ready"
+    pgwget --progress=dot:giga -O$TMP http://$MASTER:8000/hasrepmgr
+    if [ -s $TMP ]
+    then
+	msg=$(cat $TMP)
+        case $msg in
+	    OK* )
+	        echo "Master has repmgr ready"
+		done=yes
+	        break
+	        ;;
+	    * )
+	        echo "Master does not have repmgr ready, msg=$msg"
+		;;
+        esac
+    fi
+    rm -f $TMP
+    sleep 15
+done
+[ "$done" = "yes" ] || die "Master never had repmgr available"
+
+
+$CFGDIR/etc/start-db
+
+sleep 10
+
+# make sure the postgres password is right
+$CFGDIR/etc/update-postgres-user
+
+# register as standby
+repmgr -f $CFGDIR/main/repmgr.conf standby register
+echo repmgr ret=$?
+sleep 10
+
+# start repmgrd
+# start repmgrd (verbose logging for testing)
+umask 07
+repmgrd -f $CFGDIR/main/repmgr.conf -d --verbose
+echo repmgrd ret=$?
+# start repmgrd (normal logging)
+# repmgrd -f $CFGDIR/main/repmgr.conf -d
+
+chmod 600 recovery.conf

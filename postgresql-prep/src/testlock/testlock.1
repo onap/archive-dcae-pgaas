@@ -1,0 +1,38 @@
+'\" Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+'\"
+'\" Licensed under the Apache License, Version 2.0 (the "License");
+'\" you may not use this code except in compliance
+'\" with the License. You may obtain a copy of the License
+'\" at http://www.apache.org/licenses/LICENSE-2.0
+'\" 
+'\" Unless required by applicable law or agreed to in writing, software 
+'\" distributed under the License is distributed on an "AS IS" BASIS, 
+'\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+'\" implied. See the License for the specific language governing 
+'\" permissions and limitations under the License.
+.TH testlock 1 "April 26 2006" "" ""
+.SH NAME
+testlock \- lock a file and run a command with the lock held
+.SH SYNOPSIS
+testlock [-v] [-t timeout] [-s] [-r exittcode] filename command args ...
+.SH DESCRIPTION
+.PP
+Testlock will acquire a file lock and then execute a command while the lock is held.
+If no timeout is provided, testlock will wait indefinitely until the file can be locked,
+and then execute the command.
+If a timeout is given, it will stop waiting after that many seconds have passed.
+.SS Options
+.IP -t
+Abort if the lock cannot be acquired after 
+.I timeout
+seconds.
+If
+.I timeout
+is 0, the lock will be totally non-blocking.
+.IP -s
+Silently ignore errors with locking.
+(Other errors will still be reported.)
+.IP -r exitcode
+If the lock cannot be acquired, use this exit code instead of the default exit code of 99.
+.SH AUTHOR
+Tony Hansen.

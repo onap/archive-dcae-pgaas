@@ -1,0 +1,55 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+exec 1> /tmp/pgaas.out 2>&1
+set -x
+if [ -d /opt/app/postgresql-9.5.2 ]
+then export OPENECOMP=false NOTOPENECOMP=true
+else export OPENECOMP=true NOTOPENECOMP=false
+fi
+
+if $OPENECOMP
+then INSTALL_ROOT=
+fi
+
+echo STARTING $0 $(date)
+umask 0
+echo STARTING $0 $(date) >> /tmp/pgaas.inst.report
+set -x
+
+export CDFCFG=${INSTALL_ROOT}/opt/app/cdf/lib/cdf.cfg
+export PGAASCFG=${INSTALL_ROOT}/opt/app/pgaas/lib/pgaas.cfg
+
+if [ -d /opt/app/postgresql-9.5.2 ] 
+then PGDIR=/opt/app/postgresql-9.5.2 
+else PGDIR=/usr/lib/postgresql/9.5 
+fi 
+if [ -d /opt/app/postgresql-config-9.5.2/ ] 
+then CFGDIR=/opt/app/postgresql-config-9.5.2
+else CFGDIR=/opt/app/postgresql-config
+fi 
+
+(
+    grep '^postgres.x' < $CDFCFG | sed -e 's/^postgres/dcae_admin_db_password/' 
+    echo "db_configuration=$CFGDIR/main/postgresql.conf"
+    echo "pg_bin_directory=$PGDIR/bin"
+    echo "skip_configuration_file=$CFGDIR/lib/ignore-database-reconfiguration"
+) >> $PGAASCFG
+
+echo ENDING $0 $(date)
+echo ENDING $0 $(date) >> /tmp/pgaas.inst.report
+if $NOTOPENECOMP
+then sed -n '/^STARTING/,/^ENDING/p' `dirname $0`/../../proc_out >> /tmp/pgaas.inst.report 
+fi

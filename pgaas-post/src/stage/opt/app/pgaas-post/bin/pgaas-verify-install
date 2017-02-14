@@ -1,0 +1,227 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+die()
+{
+    exec 1>&2
+    echo "$@"
+    logger --stderr --priority local1.error --tag "DCAE" "$@"
+    exit 1
+}
+
+usage()
+{
+    exec 1>&2
+    [ $# -gt 0 ] && echo "$@"
+    b=$(basename $0)
+    echo "Usage: $b [-v]"
+    echo "$b runs a variety of tests on the PG VM and database"
+    echo "It must be run as root or postgres."
+    echo "If run as root, it will do additional tests that are"
+    echo "not possible as a normal user."
+    echo " -v verbose"
+    echo " -P do not print VERIFIED"
+    exit 1
+}
+
+PRINTVERIFIED=:
+while getopts Pv c
+do
+    case $c in
+        P ) PRINTVERIFIED=false ;;
+        v ) set -x ;;
+        '?' ) usage ;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+# this can be run as root
+ROOT=false
+case `id` in
+    *"(root)"* ) ROOT=true ;;
+    *"(postgres)"* )  ;;
+    * ) echo "$0 must be run as either root or postgres" ;;
+esac
+
+VERIFIEDCOUNT=0
+FAILEDCOUNT=0
+TOTALCOUNT=0
+
+verified()
+{
+    (( VERIFIEDCOUNT = VERIFIEDCOUNT + 1 ))
+    (( TOTALCOUNT = TOTALCOUNT + 1 ))
+    $PRINTVERIFIED && echo "VERIFIED: $@"
+}
+
+failed()
+{
+    (( FAILEDCOUNT = FAILEDCOUNT + 1 ))
+    (( TOTALCOUNT = TOTALCOUNT + 1 ))
+    echo "FAILED: $@"
+}
+
+tabtext()
+{
+    echo "$@" | sed 's/^/	/'
+}
+
+HOSTNAME=$(hostname -f)
+
+################################################################
+################        things set up by        ################
+################           openstack            ################
+################################################################
+
+case $HOSTNAME in
+    *.*.* ) verified "hostname has a FQDN" ;;
+    * ) failed "hostname does not have a FQDN" ;;
+esac
+
+################################################################
+################        things set up by        ################
+################    controller dcae_install     ################
+################################################################
+
+if grep '^dcae:' /etc/passwd > /dev/null
+then verified "dcae user exists"
+else failed "dcae user does not exist"
+fi
+if $ROOT
+then
+    if [ -s /etc/sudoers.d/dcae-postgres ]
+    then verified "dcae can sudo to postgres"
+    else failed "dcae cannot sudo to postgres"
+    fi
+fi
+
+SHOWDF=false
+for i in /opt/tools /dbroot/pgdata /dbroot/pglogs
+do
+    if df -h 2>&1 | grep " $i"'$' > /dev/null
+    then verified "$i has its own filesystem"
+    else failed "$i does not have its own filesystem"; SHOWDF=true
+    fi
+done
+$SHOWDF && tabtext "$(df -h 2>&1)"
+
+if grep '^postgres:' /etc/passwd > /dev/null
+then verified "postgres user exists"
+else failed "postgres user does not exist"
+fi
+
+################################################################
+################        things set up by        ################
+################          cdf package           ################
+################################################################
+
+if [ -d /opt/app/cdf ]
+then verified "/opt/app/cdf is present"
+else failed "/opt/app/cdf is present"
+fi
+
+cdfcall=$(/opt/app/cdf/bin/getpropvalue -n foo 2>&1)
+case "$cdfcall" in
+    *Configuration?property*must?be?defined* ) verified "CDF is installed and working" ;;
+    * ) failed "CDF is not installed and working"; tabtext "$cdfcall" ;;
+esac
+
+################################################################
+################        things set up by        ################
+################    postgresql-prep package     ################
+################################################################
+
+if grep "^pgnodes=.*$HOSTNAME" /opt/app/cdf/lib/cdf.cfg > /dev/null
+then verified "HOSTNAME is part of cluster (cdf.cfg pgnodes)"
+else failed "HOSTNAME is not part of cluster (cdf.cfg pgnodes)"
+fi
+
+# check for certificate presence goes here
+
+if [ -s /lib/systemd/system/pgaas-idns.service ]
+then verified "found pgaas-idns service properly installed for Ubuntu 16"
+elif [ -s /etc/init/pgaas-init.conf ]
+then verified "found pgaas-idns service properly installed for Ubuntu 14"
+else failed "pgaas-idns service has not bee installed properly"
+fi
+
+if [ -d /var/run/postgresql ]
+then verified "/var/run/postgresql exists"
+else failed "/var/run/postgresql does not exist"
+fi
+
+if [ -s /etc/logrotate.d/pgaas ]
+then verified "/etc/logrotate.d/pgaas has been installed"
+else failed "/etc/logrotate.d/pgaas has not been installed"
+fi
+
+
+################################################################
+################        things set up by        ################
+################       postgresql-config        ################
+################################################################
+
+if ps -fu postgres | grep "postgres: logger process" > /dev/null
+then verified "postgres is running"
+else failed "postgres does not have a logger process running"
+fi
+
+if pgrep repmgrd > /dev/null
+then verified "repmgrd is running"
+else failed "repmgrd is not running"
+fi
+
+if [ -f /opt/app/pgaas/bin/runpsqll ]
+then
+    verified "/opt/app/pgaas/bin/runpsqll is installed"
+    roles=$( /opt/app/pgaas/bin/runpsqll "select rolname from pg_roles" )
+    case "$roles" in
+        *repmgr* ) verified "postgres repmgr role name is present" ;;
+        * ) failed "postgres repmgr role name was not added"; tabtext "$roles" ;;
+    esac
+    rolcount=$( /opt/app/pgaas/bin/runpsqll "select count(rolname) from pg_roles" | awk 'NF > 0 {print $1}' )
+    case $rolcount in
+        1 | 2 ) failed "no additional postgresql role names have been added"; tabtext "$roles" ;;
+        * ) verified "additional postgresql role names have been added" ;;
+    esac
+    dxpgtemporal=$( /opt/app/pgaas/bin/runpsqll "select count(extname) from pg_extension where extname = 'temporal_tables'" | awk 'NF > 0 {print $1}' )
+    case $dxpgtemporal in
+	1 ) verified "temporal_tables extension has been added" ;;
+	* ) failed "temporal_tables extension has not been added" ;;
+    esac
+else
+    failed "/opt/app/pgaas/bin/runpsqll is not installed"
+fi
+
+if ps -ef | grep python3 | grep iDNS-responder.py > /dev/null
+then verified "iDNS-responder.py is running"
+else failed "iDNS-responder.py is not running"
+fi
+
+if [ -f /opt/app/pgaas/bin/check_cluster ]
+then
+    verified "/opt/app/pgaas/bin/check_cluster is installed"
+    ckcl=$( /opt/app/pgaas/bin/check_cluster 2>&1 )
+    case $ckcl in
+        *No?such?file?or?directory* ) failed "check_cluster not found"; tabtext "$ckcl" ;;
+        *ERROR* ) failed "check_cluster returned error:"; tabtext "$ckcl" ;;
+        *WARNING* ) failed "check_cluster returned a warning:"; tabtext "$ckcl" ;;
+        * ) verified "check_cluster succeeded" ;;
+    esac
+else
+    failed "/opt/app/pgaas/bin/check_cluster is not installed"
+fi
+
+echo "$VERIFIEDCOUNT tests passed, $FAILEDCOUNT tests failed, $TOTALCOUNT total tests run"

@@ -1,0 +1,25 @@
+{
+    "debian": {
+        "replaces": [],
+        "conflicts": [],
+        "groupId": "org.openecomp.dcae.storage.pgaas",
+        "externalDependencies": []
+    },
+    "fileGroup": "postgres",
+    "version": "1.0.0",
+    "applicationName": "postgresql-config",
+    "internalDependencies": [],
+    "directoryTreeTops": {
+        "/opt": "/opt/app/postgresql-config"
+    },
+    "executionUser": "postgres",
+    "maintainer": "OpenECOMP <dcae@lists.openecomp.org>",
+    "fileUser": "postgres",
+    "docker": {
+        "tag": "latest",
+        "externalDependencies": []
+    },
+    "groupId": "org.openecomp.dcae.storage.pgaas",
+    "description": " PostgreSQL as a Service main scripts ",
+    "executionGroup": "postgres"
+}

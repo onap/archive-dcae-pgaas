@@ -1,0 +1,42 @@
+{
+    "version": "1.0",
+
+    "global":
+	{
+            "state": "master",
+	    "sendWalTo":
+	        [
+	            {
+		
+	            }
+	        ]
+        },
+
+    "databases":
+	[
+            {
+	        "name": "ojcit",
+		"users":
+		    [
+		        {
+			    "id": "ojcitadmin",
+			    "password": "bar",
+			    "role": "admin",
+			    "roleComment": "admin|writer|reader"
+			},
+		        {
+			    "id": "ojcituser",
+			    "password": "bar",
+			    "role": "writer",
+			    "roleComment": "admin|writer|reader"
+			},
+		        {
+			    "id": "ojcitviewer",
+			    "password": "bar",
+			    "role": "reader",
+			    "roleComment": "admin|writer|reader"
+			}
+		    ]
+	    }
+        ]
+}

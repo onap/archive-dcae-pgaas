@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+# NAME
+#	gen-repmgr-info - extract information about the system appropriate for use with repmgr
+#
+# DESCRIPTION
+#	gen-repmgr-info -n hosts options...
+#
+# for a list of hosts such as "uiopzxc5pepstg00.grant.example.com|uiopzxc5pepstg01.grant.example.com|uiopmtc6njpstg00.grant.example.com|uiopmtc6njpstg01.grant.example.com"
+# extract various pieces of information about the list. For example, generate a list of repmgr node numbers like this:
+# uiopzxc5pepstg00.grant.example.com 100
+# uiopzxc5pepstg01.grant.example.com 101
+# uiopmtc6njpstg00.grant.example.com 200
+# uiopmtc6njpstg01.grant.example.com 201
+
+use strict vars;
+
+use Getopt::Std;
+use Digest::SHA qw(sha256_hex);
+
+sub usage {
+  my $msg = shift;
+  print "$msg\n" if $msg;
+  print "Usage: $0 -n 'node|node|node|...' [-S] [-s site] [-L] [-l node] [-c node] [-C node] [-m] [-M node] [-e] [-v] [-p]\n";
+  print "-n list of nodes (FQDNs), |-separated\n";
+  print "-S show list of all sites and their node # values\n";
+  print "-s site\tshow the node # value for a given site\n";
+  print "-L show list of all nodes and their node # values\n";
+  print "-l node\tshow the node # value for a given node\n";
+  print "-C node\tshow the machine name that a given node should cascade from, or DEFAULT\n";
+  print "-c node\tshow the machine node # that a given node should cascade from, or DEFAULT\n";
+  print "-e node\tshow the list of nodes on the same site as the given node, |-separated\n";
+  print "-m\twhich system is the 'master'\n";
+  print "-M node\twhich system matches the given node, taking FQDN into consideration\n";
+  print "-v\tverbose\n";
+  print "-p\tprint the node names in sorted order\n";
+  exit 1;
+}
+
+
+my %optargs;
+getopts('C:c:e:E:Ll:M:mn:pPSs:v', \%optargs) or usage();
+my $verbose = $optargs{v};
+
+my $pgnodes = $optargs{n} or usage("-n is required");
+
+# generate the data about the nodes
+my @pgnodes = sort split(/[|]/, $pgnodes);
+
+# @sites contains the list of all site names.
+# For uiopzxc5pepstg01.grant.example.com, the sitename will be uiopzxc5pepstg.
+my @sites = genSites();
+my %pgnodesToSite = genPgnodeToSites();
+
+# The %siteValues contains 100, 200, etc for each site name
+# print "\nsites=" . join("\n", @sites);
+my %siteValues = genSiteValues();
+
+# The %pgnodeValues contains 100, 101, 200, 201, etc for each node name
+my %pgnodeValues = genPgnodeValues();
+# The %valuesToPgnode contains node names for each value
+my %valuesToPgnode = genValuesToPgnodes();
+
+if ($optargs{L}) {
+  for my $pgnode (@pgnodes) {
+    print "$pgnode $pgnodeValues{$pgnode}\n";
+  }
+}
+
+if ($optargs{S}) {
+  for my $site (@sites) {
+    print "$site $siteValues{$site}\n";
+  }
+}
+
+if ($optargs{s}) {
+  for my $site (@sites) {
+    print "$siteValues{$site}\n" if $site eq $optargs{s};
+  }
+}
+
+if ($optargs{l}) {
+  for my $pgnode (@pgnodes) {
+    print "$pgnodeValues{$pgnode}\n" if $pgnode eq $optargs{l};
+  }
+}
+
+if ($optargs{c}) {
+  my $pgnode = $optargs{c};
+  my $pgnodeValue = $pgnodeValues{$pgnode};
+  my $masterValue = int($pgnodeValue / 100) * 100;
+  if (($masterValue > 100) && (($masterValue % 100) > 0)) {
+    print "$masterValue\n";
+  } else {
+    print "DEFAULT\n";
+  }
+}
+
+if ($optargs{C}) {
+  my $pgnode = $optargs{C};
+  my $pgnodeValue = $pgnodeValues{$pgnode};
+  my $masterValue = int($pgnodeValue / 100) * 100;
+  # print "pgnode=$pgnode, pgnodeValue=$pgnodeValue, masterValue=$masterValue\n";
+  if (($pgnodeValue % 100) > 0) {
+    print "$valuesToPgnode{$masterValue}\n";
+  } else {
+    print "DEFAULT\n";
+  }
+}
+
+sub enodes {
+  my $pgnodeSearch = $optargs{e};
+  my $siteSearch = $pgnodesToSite{$pgnodeSearch};
+  my $ret = "";
+  # print "looking for $pgnodeSearch in $siteSearch\n";
+  my $sep = "";
+  for my $pgnode (@pgnodes) {
+    my $site = $pgnodesToSite{$pgnode};
+    # print "looking at $pgnode in $site\n";
+    if ($site eq $siteSearch) {
+      $ret .= "$sep$pgnode";
+      $sep = "|";
+    }
+  }
+  return $ret;
+}
+
+if ($optargs{e}) {
+  my $ret = enodes();
+  print "$ret\n";
+}
+
+if ($optargs{E}) {
+  print sha256_hex(enodes()) . "\n";
+}
+
+if ($optargs{m}) {
+    print "$pgnodes[0]\n";
+}
+
+if ($optargs{M}) {
+  my $node = $optargs{M};
+  if ($node =~ /[.]/) {
+    print "$node\n";
+  } else {
+    my $found;
+    for my $pgnode (@pgnodes) {
+      if ($pgnode =~ /^$node[.]/) {
+	print $node;
+	$found = 1;
+	last;
+      }
+    }
+  }
+}
+
+sub pnodes {
+  return join("|", @pgnodes);
+}
+
+if ($optargs{p}) {
+  print pnodes() . "\n";
+}
+
+if ($optargs{P}) {
+  print sha256_hex(pnodes()) . "\n";
+}
+
+# for a given node name uiopzxc5pepstg01.grant.example.com, the return uiopzxc5pepstg.
+sub nodeToSite {
+  my $site = shift;
+  $site =~ s/[.].*//;
+  $site =~ s/\d*$//;
+  return $site;
+}
+
+# from a list of nodes, generate the sorted list of sites
+sub genSites {
+  my %sites = ();
+  # print "pgnodes=" . join("\n", @pgnodes);
+  for my $pgnode (@pgnodes) {
+    my $site = nodeToSite($pgnode);
+    $sites{$site} = $site;
+  }
+  my @sites = sort keys %sites;
+  return @sites;
+}
+
+# from a list of nodes, generate a mapping from them to their sites
+sub genPgnodeToSites {
+  my %sites = ();
+  for my $pgnode (@pgnodes) {
+    $sites{$pgnode} = nodeToSite($pgnode);
+  }
+  return %sites;
+}
+
+# generate the 100, 200, etc for each site name
+sub genSiteValues {
+  my %siteValues;
+  for (my $i = 0; $i <= $#sites; $i++) {
+    $siteValues{$sites[$i]} = ($i+1) * 100;
+  }
+  # print "\nsiteValues=\n"; for my $site (@sites) { print "$site $siteValues{$site}\n"; }
+  return %siteValues;
+}
+
+sub genPgnodeValues {
+  my %pgnodeValues;
+  my $i = 0;
+  my $lastSite = '';
+  for my $pgnode (@pgnodes) {
+    my $thisSite = nodeToSite($pgnode);
+    if ($thisSite eq $lastSite) {
+      $i++;
+    } else {
+      $i = 0;
+    }
+    $lastSite = $thisSite;
+    $pgnodeValues{$pgnode} = $siteValues{$thisSite} + $i;
+  }
+  # print "\nnodeValues=\n"; for my $pgnode (@pgnodes) { print "$pgnode $pgnodeValues{$pgnode}\n"; }
+  return %pgnodeValues;
+}
+
+sub genValuesToPgnodes {
+  my %valuesToPgnode;
+  for my $pgnode (keys %pgnodeValues) {
+    my $value = $pgnodeValues{$pgnode};
+    $valuesToPgnode{$value} = $pgnode;
+  }
+  return %valuesToPgnode;
+}
+

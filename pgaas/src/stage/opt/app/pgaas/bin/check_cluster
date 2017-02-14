@@ -1,0 +1,154 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+# NAME
+#	check_cluster - check the state of the cluster
+#
+# USAGE
+#    check_cluster [-v] [-l] [-t timeout]
+#	-l          do not check localhost first (and restarting the service if necessary)
+#	-t timeout  set how long to wait when accessing the servers
+#	-v          verbose
+#
+# DESCRIPTION
+#	Loop through the nodes in the cluster, using pgwget to determine how many are masters, secondaries, or not up.
+#	Complain about certain situations.
+#	If there are multiple masters, and this not the first master in the list, then:
+#		run pg_ctl_restart
+#		prevent /ro from returning true
+
+CDF=/opt/app/cdf
+if [ -d /opt/app/postgresql-9.5.2 ]
+then PGDIR=/opt/app/postgresql-9.5.2
+else PGDIR=/usr/lib/postgresql/9.5
+fi
+if [ -d /opt/app/postgresql-config-9.5.2/ ]
+then CFGDIR=/opt/app/postgresql-config-9.5.2/
+else CFGDIR=/opt/app/postgresql-config/
+fi
+PATH=$PGDIR/bin:$CDF/bin:/opt/app/pgaas/bin:/opt/app/postgresql-prep/bin:$PATH
+
+usage()
+{
+    exec 1>&2
+    [ $# -gt 0 ] && echo "$@"
+    echo "Usage: $0 [-v] [-l] [-t timeout]"
+    echo -e " -l          do not check localhost first (and restarting the service if necessary)"
+    echo -e " -t timeout  set how long to wait when accessing the servers"
+    echo -e " -v          verbose"
+    exit 1
+}
+
+VERBOSE=false
+TIMEOUT=10
+TESTLOCAL=:
+while getopts lt:v c
+do
+    case "$c" in
+	l ) TESTLOCAL=false ;;
+	t ) TIMEOUT=$OPTARG ;;
+	v ) VERBOSE=: ;;
+	\?) usage ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+# loop through the nodes in the cluster, using pgwget to determine if any are a master. Save in $@
+master_count=0
+secondary_count=0
+total_count=0
+down_count=0
+
+DOWNS=
+MASTERS=
+SECONDARIES=
+
+MSEP=
+SSEP=
+DSEP=
+HOSTNAME=$(hostname -f)
+FOUNDPREVIOUSMASTER=
+DOPGCTLSTOP=
+
+if $TESTLOCAL
+then
+    isrw=`pgwget --tries=1 --read-timeout=$TIMEOUT --quiet -O/dev/stdout http://localhost:8000/isrw`
+    case "$isrw" in
+	Master | Secondary ) ;;
+	* ) 
+	    echo "$(date)|WARNING|RESTARTED|Local iDNS-responder.py not responding. Restarting."
+	    ps -fu postgres | grep "python3 /opt/app/postgresql-prep/bin/iDNS-responder.py" | grep -v grep | awk '{print "kill " $2}' | sh
+	    sleep 10
+	    ;;
+    esac
+fi
+
+for i in $(getpropvalue -n pgnodes | sed 's/|/ /g')
+do
+    $VERBOSE && echo -n "Checking $i"
+    isrw=`pgwget --tries=1 --read-timeout=10 --quiet -O/dev/stdout http://$i:8000/isrw`
+    $VERBOSE && echo ": $isrw"
+    case "$isrw" in
+        Master )
+	    (( master_count = master_count + 1 ))
+	    (( total_count = total_count + 1 ))
+	    MASTERS="$MASTERS$MSEP$i"
+	    MSEP=" "
+	    if [ -z "$FOUNDPREVIOUSMASTER" ]
+	    then FOUNDPREVIOUSMASTER=yes
+	    elif [ -n "$FOUNDPREVIOUSMASTER" -a "$i" = $HOSTNAME ]
+	    then DOPGCTLSTOP=yes
+	    fi
+	    ;;
+	Secondary )
+	    (( secondary_count = secondary_count + 1 ))
+	    (( total_count = total_count + 1 ))
+	    SECONDARIES="$SECONDARIES$SSEP$i"
+	    SSEP=" "
+	    ;;
+	* )
+	    DOWNS="$DOWNS$DSEP$i"
+	    DSEP=" "
+	    (( down_count = down_count + 1 ))
+	    (( total_count = total_count + 1 ))
+	    ;;
+    esac
+done
+
+(( up_count = master_count + secondary_count ))
+
+date=$(date)
+echo "$date|INFO|masters=$master_count $MASTERS|secondaries=$secondary_count $SECONDARIES|down=$down_count $DOWNS|"
+
+FORCEROOFF=/var/run/postgresql/force-ro-off
+if [ $master_count -lt 1 ]
+then echo "$date|FATAL|NOMASTER|NO MASTER FOUND|"
+elif [ $master_count -gt 1 ]
+then echo "$date|FATAL|MULTIPLEMASTERS|TOO MANY MASTERS FOUND|"
+    if [ -n "$DOPGCTLSTOP" ]
+    then
+	touch "$FORCEROOFF"
+        pg_ctl_stop
+    fi
+fi
+if [ -z "$DOPGCTLSTOP" -a -f "$FORCEROOFF" ]
+then rm -f "$FORCEROOFF"
+fi
+if [ $up_count -eq 0 ]
+then echo "$date|FATAL|NOREADER|NO SECONDARY FOUND"
+fi
+if [ $down_count -ne 0 ]
+then echo "$date|ERROR|DOWN|One or more systems are down: $DOWNS"
+fi

@@ -1,0 +1,72 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+# create a master database
+set -x
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+[ -n "$PGDIR" ] || die "PGDIR is not set"
+[ -n "$DBROOT" ] || die "DBROOT is not set"
+[ -n "$CFGDIR" ] || die "CFGDIR is not set"
+
+cd $CFGDIR/main || die "Cannot cd $CFGDIR/main"
+
+PATH=${INSTALL_ROOT}/opt/app/postgresql-prep/bin:$CFGDIR/etc:$PGDIR/bin:$PATH
+
+umask 077
+TMP=$(mktemp /tmp/tmp.cdm.XXXXXXXXXX)
+trap 'rm -f $TMP' 0 1 2 3 15
+
+rm -rf $DBROOT/*	# initdb fails if the directory is not totally empty
+pswd=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -x -n postgres )
+echo "$pswd" > $TMP
+$PGDIR/bin/initdb -D $DBROOT --pwfile=$TMP
+rm -f $TMP
+
+$CFGDIR/etc/start-db
+sleep 30
+
+# create temporal tables and other extensions, if needed
+$CFGDIR/etc/create-extensions
+
+# create repmgr user/db, if needed
+$CFGDIR/etc/create-repmgr-user
+
+sleep 10
+
+# register as master
+repmgr -f $CFGDIR/main/repmgr.conf master register
+echo repmgr ret=$?
+
+sleep 10
+
+# start repmgrd
+# start repmgrd (verbose logging for testing)
+umask 07
+repmgrd -f $CFGDIR/main/repmgr.conf -d --verbose
+echo repmgrd ret=$?
+# start repmgrd (normal logging)
+# repmgrd -f $CFGDIR/main/repmgr.conf -d
+
+
+# NO LONGER NEEDED $CFGDIR/etc/create-db-backup

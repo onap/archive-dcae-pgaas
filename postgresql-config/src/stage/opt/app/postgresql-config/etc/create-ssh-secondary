@@ -1,0 +1,102 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+set -x
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+bwget()
+{
+    ${INSTALL_ROOT}/opt/app/postgresql-prep/bin/pgwget --progress=dot:giga "$@"
+}
+
+[ -n "$MASTER" ] || die "MASTER is not set"
+
+
+
+umask 077
+TMP=$(mktemp /tmp/tmp.css1.XXXXXXXXXX)
+TMP2=$(mktemp /tmp/tmp.css2.XXXXXXXXXX)
+trap 'rm -f $TMP $TMP2' 0 1 2 3 15
+
+# do we have the keys already?
+if [ -f $PGAASDIR/id_rsa.pub -a -f $PGAASDIR/id_rsa -a $PGAASDIR/authorized_keys ]
+then
+    mkdir -p ~postgres/.ssh
+    chmod 700 ~postgres/.ssh
+    cp -p $PGAASDIR/id_rsa.pub $PGAASDIR/id_rsa $PGAASDIR/authorized_keys ~postgres/.ssh
+else
+    # no? copy them from the master
+    done=
+    max=40
+    for s in `seq $max`
+    do
+        echo "$s of $max: Waiting for master $MASTER to come online and send its public key"
+        bwget -O$TMP http://$MASTER:8000/getpubkey
+	ls -l $TMP
+        if [ -s $TMP ]
+        then
+	    msg=$(cat $TMP)
+            case "$msg" in
+            ssh-rsa* )
+                echo "Received public key"
+                mkdir -p ~postgres/.ssh
+		chmod 700 ~postgres/.ssh
+                cp -p $TMP ~postgres/.ssh/authorized_keys
+                done=yes
+                break
+                ;;
+            * ) echo "Received invalid public key: $msg"
+                ;;
+            esac
+	else
+	    echo "No key available yet"
+        fi
+        rm -f $TMP
+        sleep 15
+    done
+    [ "$done" = "yes" ] || die "Unable to get key from $MASTER"
+    
+    done=
+    max=40
+    for s in `seq $max`
+    do
+        echo "$s of $max: Asking for master $MASTER to send remaining ssh files"
+        bwget -O$TMP2 http://$MASTER:8000/getssh/`hostname -f`
+	ls -l $TMP2
+        if [ -s $TMP2 ]
+        then
+	    msg=$(cat $TMP2)
+	    case "$msg" in
+                OK* ) echo "Master has sent the remaining ssh keys"
+                    done=yes
+                    break
+                    ;;
+		* ) echo "No ssh keys yet: $msg"
+		    ;;
+            esac
+        fi
+        rm -f $TMP2
+        sleep 15
+    done
+    [ "$done" = "yes" ] || die "Master did not send ssh keys"
+fi

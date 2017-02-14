@@ -1,0 +1,44 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+set -x
+
+DBROOT=/dbroot/pgdata/main
+CDFCFG=${INSTALL_ROOT}/opt/app/cdf/lib/cdf.cfg
+
+# We don't really need to save pwd.cfg anymore since we are now forcing the password.
+# PWDCFG=$DBROOT/../pgaas/pwd.cfg
+# if the DB already exists in Cinder storage, grab the password from there for use elsewhere
+# if [ -s $PWDCFG -a $( egrep '^Global_Title' < $PWDCFG ) -eq 1 ]
+# then
+#     TMP=$(mktemp /tmp/tmp.ccm.XXXXXXXXXX)
+#     trap 'rm -f $TMP' 0 1 2 3 15
+#     egrep -v '^Global_Title|^postgres|^repmgr' $CDFCFG > $TMP
+#     egrep    '^Global_Title|^postgres|^repmgr' $PWDCFG | cat $TMP - > $CDFCFG
+# fi
+
+# generate a 64 hex random value (256 bits of randomness) for the passwords
+if grep '^postgres' $CDFCFG > /dev/null
+then :
+else
+    val2=$(dd if=/dev/urandom count=1 ibs=32 2>/dev/null | od -x -w1000 | sed -e 's/^0000000 //' -e 's/ //g' -e 1q)
+    echo "ENCRYPTME.AES.postgres=$val2" | ${INSTALL_ROOT}/opt/app/cdf/bin/setencryptedvalues >> $CDFCFG
+fi
+if grep '^repmgr' $CDFCFG > /dev/null
+then :
+else
+    val2=$(dd if=/dev/urandom count=1 ibs=32 2>/dev/null | od -x -w1000 | sed -e 's/^0000000 //' -e 's/ //g' -e 1q)
+    echo "ENCRYPTME.AES.repmgr=$val2" | ${INSTALL_ROOT}/opt/app/cdf/bin/setencryptedvalues >> $CDFCFG
+fi

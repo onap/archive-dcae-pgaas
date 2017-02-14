@@ -1,0 +1,34 @@
+'\" Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+'\"
+'\" Licensed under the Apache License, Version 2.0 (the "License");
+'\" you may not use this code except in compliance
+'\" with the License. You may obtain a copy of the License
+'\" at http://www.apache.org/licenses/LICENSE-2.0
+'\" 
+'\" Unless required by applicable law or agreed to in writing, software 
+'\" distributed under the License is distributed on an "AS IS" BASIS, 
+'\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+'\" implied. See the License for the specific language governing 
+'\" permissions and limitations under the License.
+.TH check_cluster 1PG {{DATE}} OpenECOMP OpenECOMP
+.SH NAME
+check_cluster - check the state of the cluster
+.SH SYNOPSIS
+check_cluster [-v] [-l] [-t timeout]
+.HP 20
+-l
+do not check localhost first (and restarting the service if necessary)
+.HP 20
+-t timeout
+set how long to wait when accessing the servers
+.HP 20
+-v
+verbose
+.SH DESCRIPTION
+Loop through the nodes in the cluster, using pgwget to determine how many are masters, secondaries, or not up.
+Complain about certain situations.
+If there are multiple masters, and this not the first master in the list, then:
+
+run pg_ctl_restart
+
+prevent /ro from returning true

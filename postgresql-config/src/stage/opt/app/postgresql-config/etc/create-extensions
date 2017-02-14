@@ -1,0 +1,53 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+
+set -x
+
+die()
+{
+    echo $0: "$@" 1>&2
+    echo $0: "$@"
+    umask 022
+    echo $0: "$@" >> /tmp/pgaas-failures
+    exit 1
+}
+
+[ -n "$PGDIR" ] || die "PGDIR is not set"
+
+PATH=${INSTALL_ROOT}/opt/app/postgresql-prep/bin:$PGDIR/bin:$PATH
+
+TMP=$(mktemp /tmp/tmp.ce.XXXXXXXXXX)
+trap 'rm -f $TMP' 0 1 2 3 15
+
+echo "select datname from pg_database;" | psql --tuples-only | sed -e 's/^ *//' -e '/^$/d' -e '/^template0$/d' -e '/^repmgr$/d' > $TMP
+
+for db in $(< $TMP)
+do
+    # enable temporal tables for use
+    if [ -f /opt/app/postgresql-9.5.2/lib/temporal_tables.so ]
+    then
+	psql --dbname=$db <<-EOF
+		CREATE EXTENSION temporal_tables;
+		EOF
+    else
+        echo "$0: temporal_tables extension is not installed"
+    fi
+
+    # and other extensions
+    psql --dbname=$db <<-EOF
+	CREATE EXTENSION hstore;
+	CREATE EXTENSION pgcrypto;
+	EOF
+done

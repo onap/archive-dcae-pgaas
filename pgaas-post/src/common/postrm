@@ -1,0 +1,1 @@
+echo STARTING $0 $(date)

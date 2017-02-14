@@ -1,0 +1,4 @@
+# this command is used to access the iDNS status server running on a PGaaS instance
+
+wgetpswd=`/opt/app/cdf/bin/getpropvalue -x -n wgetpswd`
+wget --http-user=pgaas --http-password=$wgetpswd "$@"

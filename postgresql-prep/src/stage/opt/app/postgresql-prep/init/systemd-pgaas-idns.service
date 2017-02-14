@@ -1,0 +1,12 @@
+# PGaaS - PostgreSQL as a Service                                                                                                                            
+#                                                                                                                                                            
+# The PGaaS iDNS server provides information on the system, primarily for the iDNS system                                                                    
+
+[Unit]
+Description=PGaaS iDNS server
+
+[Service]
+ExecStart= /opt/app/postgresql-prep/bin/iDNS-responder.py
+
+[Install]
+WantedBy=multi-user.target

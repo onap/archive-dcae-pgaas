@@ -1,0 +1,29 @@
+{
+    "executionUser": "postgres",
+    "maintainer": "OpenECOMP <dcae@lists.openecomp.org>",
+    "executionGroup": "postgres",
+    "directoryTreeTops": {
+        "/opt": "/opt/app/cdf"
+    },
+    "description": " PostgreSQL as a Service main scripts ",
+    "docker": {
+        "tag": "latest",
+        "externalDependencies": []
+    },
+    "version": "1.0.0",
+    "applicationName": "cdf",
+    "internalDependencies": [],
+    "fileGroup": "postgres",
+    "fileUser": "postgres",
+    "groupId": "org.openecomp.dcae.storage.pgaas",
+    "debian": {
+        "externalDependencies": [
+            {
+                "libgetopt-java": ">= 1.0.14"
+            }
+        ],
+        "groupId": "org.openecomp.dcae.storage.pgaas",
+        "conflicts": [],
+        "replaces": []
+    }
+}

@@ -1,0 +1,72 @@
+'\" Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+'\"
+'\" Licensed under the Apache License, Version 2.0 (the "License");
+'\" you may not use this code except in compliance
+'\" with the License. You may obtain a copy of the License
+'\" at http://www.apache.org/licenses/LICENSE-2.0
+'\" 
+'\" Unless required by applicable law or agreed to in writing, software 
+'\" distributed under the License is distributed on an "AS IS" BASIS, 
+'\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+'\" implied. See the License for the specific language governing 
+'\" permissions and limitations under the License.
+.TH dcae_admin_db.py 1PG {{DATE}} OpenECOMP OpenECOMP
+.SH NAME
+dcae_admin_db.py - interface with DCAE controller
+.SH SYNOPSIS
+dcae_admin_db.py [options] configurationChanged json-file
+.br
+dcae_admin_db.py [options] suspend
+.br
+dcae_admin_db.py [options] resume
+.br
+dcae_admin_db.py [options] test
+.SS OPTIONS
+.HP 20
+-H / --dbhost=
+host name, defaults to CFG['dcae_admin_db_hostname']
+.HP 20
+-d / --dbdir=
+database directory path, defaults to CFG['db_directory']
+.HP 20
+-c / --dbconf=
+database configuration path, defaults to CFG['db_configuration']
+.HP 20
+-D / --dbname=
+database name, defaults to CFG['dcae_admin_db_databasename']
+.HP 20
+-U / --user=
+user to login as, defaults to CFG['dcae_admin_db_username']
+.HP 20
+-P / --password=
+password for user, defaults to CFG['dcae_admin_db_password']
+.HP 20
+-B / --bindir=
+postgresql bin directory, defaults to CFG['pg_bin_directory']
+.HP 20
+-i / --ignorefile=
+skip configuration if this file is present, defaults to CFG['skip_configuration_file']
+.HP 20
+-n / --nocreate
+do not create the databases / users
+.HP 20
+-I / --ignoredb
+ignore current state of database
+.HP 20
+-R / --remove
+remove old databases / users
+.HP 20
+-J / --jsontop=
+top of json tree, as in \"['pgaas']\"
+.HP 20
+-e / --errors=
+where to redirect error output, defaults to CFG['dcae_admin_db_errors_file'] then stderr
+.HP 20
+-t / --trace=
+where to redirect trace output, defaults to CFG['dcae_admin_db_trace_file'] then stderr
+.HP 20
+-v / --verbose
+verbose, defaults to CFG['dcae_admin_db_verbosity']
+.SH DESCRIPTION
+This program is intended to be executed by the DCAE controller manager.
+Given a database description json file, update the current VM accordingly

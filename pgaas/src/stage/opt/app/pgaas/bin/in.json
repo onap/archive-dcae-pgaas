@@ -1,0 +1,97 @@
+{
+  # sample configuration file for dcae_admin_db
+  "vmConfiguration": {
+    "$class": "org.openecomp.dcae.controller.service.storage.postgres.service.PostgresServiceConfiguration",
+    "state": "master",
+    "databases": {
+      "odcit": {
+        "created": "2016-05-10T01:52:39.431+0000",
+        "description": "A&AI DCAE Central Inventory",
+        "ownerRole": "odcit_admin",
+        "contacts": {"ws4361": {
+          "created": "2016-05-10T01:52:39.431+0000",
+          "fullName": "Wen Shang"
+        }},
+        "roles": {
+          "odcit_admin": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "odcit123",
+            "role": "admin",
+            "roleComments": []
+          },
+          "odcit_user": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "odcit123",
+            "role": "writer",
+            "roleComments": []
+          },
+          "odcit_viewer": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "odcit123",
+            "role": "reader",
+            "roleComments": []
+          }
+        }
+      },
+      "dmaap": {
+        "created": "2016-05-10T01:52:39.431+0000",
+        "description": "DMAAP Databus Configuration",
+        "ownerRole": "dmaap_admin",
+        "contacts": {"dl715d": {
+          "created": "2016-05-10T01:52:39.431+0000",
+          "fullName": "Dominic Lunanuova"
+        }},
+        "roles": {
+          "dmaap_admin": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dmaap123",
+            "role": "admin",
+            "roleComments": []
+          },
+          "dmaap_user": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dmaap123",
+            "role": "writer",
+            "roleComments": []
+          },
+          "dmaap_viewer": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dmaap123",
+            "role": "reader",
+            "roleComments": []
+          }
+        }
+      },
+      "dcae_inv": {
+        "created": "2016-05-10T01:52:39.431+0000",
+        "description": "Running DCAE Services",
+        "ownerRole": "dcae_inv_admin",
+        "contacts": {
+	  "mh677g": {
+          "created": "2016-05-10T01:52:39.431+0000",
+          "fullName": "Michael Hwang"
+        }},
+        "roles": {
+          "dcae_inv_admin": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dcae_inv123",
+            "role": "admin",
+            "roleComments": []
+          },
+          "dcae_inv_user": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dcae_inv123",
+            "role": "writer",
+            "roleComments": []
+          },
+          "dcae_inv_viewer": {
+            "created": "2016-05-10T01:52:39.431+0000",
+            "password": "dcae_inv123",
+            "role": "reader",
+            "roleComments": []
+          }
+        }
+      }
+    }
+  }
+}
