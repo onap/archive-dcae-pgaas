@@ -33,6 +33,10 @@ stage: clean-stage clean-common testlock/testlock
 	cp -p repackage.* $(INS)
 
 
+debian-verify: stage
+	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) 
+	@echo debian verify built
+
 debian: stage
 	repackage -y repackage.json -b debian -d $(INS) -u
 	repackage -y repackage.json -b debian -d $(INS) -u -B LATEST
