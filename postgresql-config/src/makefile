@@ -35,7 +35,7 @@ debian-verify: stage
 
 debian: stage
 	repackage -y repackage.json -b debian -d $(INS) -u
-	repackage -y repackage.json -b debian -d $(INS) -u -B LATEST
+	# repackage -y repackage.json -b debian -d $(INS) -u -B LATEST
 	@echo debian built
 
 upload-javadocs: 
