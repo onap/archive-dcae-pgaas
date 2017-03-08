@@ -17,7 +17,8 @@ esac
 #
 echo "============== STARTING SCRIPT TO CREATE DEBIAN FILES ================="
 
-export BUILD_NUMBER="${BUILD_ID}"
+TIMESTAMP=$(date +%C%y%m%dT%H%M%S) 
+export BUILD_NUMBER="${TIMESTAMP}"
 export PATH="$PATH:${WORKSPACE}/buildtools/bin"
 export NEXUS_RAW="${NEXUSPROXY}/content/sites/raw"
 
@@ -37,8 +38,6 @@ esac
 
 export REPACKAGEDEBIANUPLOAD="set -x; curl -k --netrc-file '${NETRC}' \
     --upload-file '{0}' '${REPO}/{2}-{1}'"
-#export REPACKAGEDEBIANUPLOAD3="set -x; echo curl -k --netrc-file '${NETRC}' \
-#    --upload-file '{0}' '${REPO}/{2}-{4}-SNAPSHOT.deb'"
 export REPACKAGEDEBIANUPLOAD2="set -x; curl -k --netrc-file '${NETRC}' \
     --upload-file '{0}' '${REPO}/{2}-{4}.deb'"
 
