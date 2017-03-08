@@ -30,14 +30,18 @@ PASS=$(xpath -q -e \
 export NETRC=$(mktemp)
 echo "machine nexus.openecomp.org login ${USER} password ${PASS}" > "${NETRC}"
 
-REPO="${NEXUS_RAW}/org.openecomp.dcae.pgaas/deb-snapshots"
+case "$phase" in
+	verify|merge ) REPO="${NEXUS_RAW}/org.openecomp.dcae.pgaas/deb-snapshots" ;;
+	release ) REPO="${NEXUS_RAW}/org.openecomp.dcae.pgaas/deb-releases" ;;
+esac
 
 export REPACKAGEDEBIANUPLOAD="set -x; echo curl -k --netrc-file '${NETRC}' \
     --upload-file '{0}' '${REPO}/{2}-{1}'"
-export REPACKAGEDEBIANUPLOAD3="set -x; echo curl -k --netrc-file '${NETRC}' \
-    --upload-file '{0}' '${REPO}/{2}-{4}-SNAPSHOT.deb'"
+#export REPACKAGEDEBIANUPLOAD3="set -x; echo curl -k --netrc-file '${NETRC}' \
+#    --upload-file '{0}' '${REPO}/{2}-{4}-SNAPSHOT.deb'"
 export REPACKAGEDEBIANUPLOAD2="set -x; echo curl -k --netrc-file '${NETRC}' \
-    --upload-file '{0}' '${REPO}/{2}-{4}-LATEST.deb'"
+    --upload-file '{0}' '${REPO}/{2}-{4}.deb'"
+
 case "$phase" in
 	verify ) make debian-verify ;;
 	merge ) make debian ;;
