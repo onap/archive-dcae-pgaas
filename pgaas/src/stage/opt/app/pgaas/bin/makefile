@@ -26,7 +26,7 @@ SHFILES= check_cluster isrw list_masters \
 	runpsql runpsqll startpsql setpropvalue show_pg_is_in_recovery show_pg_stat_activity show_pg_stat_archiver show_pg_stat_bgwriter \
 	show_pg_stat_database show_pg_stat_database_conflicts show_pg_statio_user_functions show_pg_statio_user_indexes \
 	show_pg_statio_user_sequences show_pg_statio_user_tables show_pg_stat_user_indexes show_pg_stat_user_tables \
-	update_var_run_isrw
+	update_var_run_isrw startbackup stopbackup
 
 stage:
 	rm -rf $(STAGEDIR)/$(DISTPATH)/bin
@@ -40,8 +40,10 @@ stage:
 		    ;; \
 		makefile | *~ ) ;; \
 		* ) \
-		    cp $$i $(STAGEDIR)/$(DISTPATH)/bin/$$i; \
-		    chmod a+x $(STAGEDIR)/$(DISTPATH)/bin/$$i; \
+		    if [ -f $$i ]; then \
+		        cp $$i $(STAGEDIR)/$(DISTPATH)/bin/$$i; \
+		        chmod a+x $(STAGEDIR)/$(DISTPATH)/bin/$$i; \
+		    fi; \
 		    ;; \
 	    esac; \
 	done

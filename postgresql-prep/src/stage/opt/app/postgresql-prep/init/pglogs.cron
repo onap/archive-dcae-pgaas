@@ -1,4 +1,4 @@
 30 * * * * ( date ; find /dbroot/pglogs -type f -mtime +3 -exec rm {} + ) >> /tmp/cleanpglogs.log 2>&1 
 50 1 * * * ( mv -f /tmp/cleanpglogs.log /tmp/cleanpglogs.log.old ) > /dev/null 2>&1
 * * * * * [ -x /opt/app/pgaas/bin/update_var_run_isrw ] && /opt/app/pgaas/bin/update_var_run_isrw
-* * * * * [ -x /opt/app/pgaas/bin/check_cluster ] && /opt/app/pgaas/bin/check_cluster >> /opt/app/log/postgresql/idns/cluster.log
+* * * * * [ -x /opt/app/pgaas/bin/check_cluster ] && /opt/app/pgaas/bin/check_cluster -d /var/run/postgresql/check_cluster >> /opt/app/log/postgresql/idns/cluster.log

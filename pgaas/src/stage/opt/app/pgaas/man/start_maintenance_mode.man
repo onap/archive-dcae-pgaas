@@ -1,0 +1,28 @@
+'\" Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+'\"
+'\" Licensed under the Apache License, Version 2.0 (the "License");
+'\" you may not use this code except in compliance
+'\" with the License. You may obtain a copy of the License
+'\" at http://www.apache.org/licenses/LICENSE-2.0
+'\" 
+'\" Unless required by applicable law or agreed to in writing, software 
+'\" distributed under the License is distributed on an "AS IS" BASIS, 
+'\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+'\" implied. See the License for the specific language governing 
+'\" permissions and limitations under the License.
+.TH start_maintenance_mode 1PG {{DATE}} OpenECOMP OpenECOMP
+.SH NAME
+start_maintenance_mode - convert this system to maintenance mode
+.SH SYNOPSIS
+start_maintenance_mode
+.SH DESCRIPTION
+Take this system out of the normal rotation and mark it as being in maintenance mode.
+This command may only be used on a secondary system and not on a master system.
+After this command is run, the PostgreSQL server will be brought down, but may be 
+restarted manually using the pg_ctl_start.
+Note that the health checks will not regard this system as being in the normal 
+rotation until the command stop_maintenance_mode is executed, allowing the DBA to perform
+whatever is needed to perform a backup or other maintenance routines,
+such as copying the database files.
+.SH FILES
+/var/run/postgresql/inmaintenance

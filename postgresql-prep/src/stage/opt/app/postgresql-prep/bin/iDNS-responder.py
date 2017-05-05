@@ -445,9 +445,15 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
 
         elif self.path == '/isrw':
             isrw = readFile("/var/run/postgresql/isrw", "n/a")
-            debugTrace("/rw: isrw returns %s" % isrw)
+            debugTrace("/isrw: returns %s" % isrw)
             resp = 200
             msg = isrw
+
+        elif self.path == '/healthcheck/status':
+            hs = readFile("/var/run/postgresql/check_cluster", "n/a")
+            debugTrace("/healthcheck/status: returns %s" % hs)
+            resp = 429 if hs == "n/a" else 200
+            msg = '{ "output": "' + re.sub('"', "'", re.sub("\n", " ", hs)) + '" }'
 
         elif not self.checkAuth():
             resp = 401
@@ -471,10 +477,18 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             else:
                 msg = "non-secondary server"
 
+        elif self.path == '/ismaintenance':
+            msg = ""
+            if os.path.exists("/var/run/postgresql/inmaintenance"):
+                resp = 200
+                msg = "in maintenance mode"
+            else:
+                msg = "not in maintenance mode"
+
         elif self.path == '/getpubkey':
             try:
                 resp = 200
-                msg = readFile("/home/postgres/.ssh/id_rsa.pub")
+                msg = readFile(os.path.expanduser("~postgres/.ssh/id_rsa.pub"))
             except:
                 traceback.print_exc()
                 resp = 404
@@ -487,7 +501,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             host = re.sub("[^a-zA-Z0-9_.-]", "", host)
             debugTrace("#2: /getssh/ host='%s'" % host)
             if self.isValidPgHost(host):
-                p = readPipe("scp -o StrictHostKeyChecking=no ~postgres/.ssh/id_rsa* " + host + ":.ssh/ 2>&1")
+                p = readPipe("scp -o StrictHostKeyChecking=no -i ~postgres/.ssh/id_rsa ~postgres/.ssh/id_rsa* postgres@" + host + ":.ssh/ 2>&1")
                 debugTrace("#3: /getssh/ to '%s' returns '%s'" % (host, p))
                 msg = "OK " + p
                 resp = 200
@@ -505,7 +519,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
                 host = re.sub("[^a-zA-Z0-9_.-]", "", host)
                 debugTrace("#2: /getcdf/ host='%s'" % host)
                 if self.isValidPgHost(host):
-                    p = readPipe("scp -o StrictHostKeyChecking=no " + fi + " " + host + ":/opt/app/cdf/lib/cdf.cfg 2>&1")
+                    p = readPipe("scp -o StrictHostKeyChecking=no -i ~postgres/.ssh/id_rsa " + fi + " postgres@" + host + ":/opt/app/cdf/lib/cdf.cfg 2>&1")
                     debugTrace("#3: /getcdf/ to '%s' returns '%s'" % (host, p))
                     msg = "OK " + p
                     resp = 200
@@ -842,6 +856,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
                 <a href='/isrw'>isrw</a> == /var/run/postgresql/isrw
                 <a href='/ismaster'>ismaster</a> == is master
                 <a href='/issecondary'>issecondary</a> == is secondary
+                <a href='/ismaintenance'>ismaintenance</a> == is in maintenance mode
                 <a href='/getpubkey'>getpubkey</a> == retrieve public key
                 <a href='/hasrepmgr'>hasrepmgr</a> == repmgr id and database are set up
                 <a href='/status'>status</a> == lots of info

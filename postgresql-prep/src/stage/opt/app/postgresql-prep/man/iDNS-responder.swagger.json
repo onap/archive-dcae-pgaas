@@ -1,0 +1,58 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "version": "1.1.0",
+        "title": "PostgreSQL as a Service REST API"
+    },
+    "paths": {
+        "/rw": {
+            "get": {
+                "description": "Gets a string indicating if this is a PostgreSQL Master server\n",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "title": "status",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/ro": {
+            "get": {
+                "description": "Gets a string indicating if this is either a PostgreSQL Master or Secondary server\n",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "title": "status",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/healthcheck/status": {
+            "get": {
+                "description": "Gets a string indicating the status of this server\n",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "title": "output",
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Error response",
+                        "schema": {
+                            "title": "output",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -6,7 +6,10 @@
 Description=PGaaS iDNS server
 
 [Service]
+User=postgres
+Group=postgres
 ExecStart= /opt/app/postgresql-prep/bin/iDNS-responder.py
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

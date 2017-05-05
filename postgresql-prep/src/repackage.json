@@ -1,29 +1,29 @@
 {
-    "description": " PostgreSQL as a Service main scripts ",
-    "fileGroup": "root",
-    "groupId": "org.openecomp.dcae.storage.pgaas",
-    "fileUser": "root",
-    "executionGroup": "root",
-    "executionUser": "root",
-    "internalDependencies": [],
-    "maintainer": "OpenECOMP <dcae@lists.openecomp.org>",
-    "docker": {
-        "tag": "latest",
-        "externalDependencies": []
-    },
     "applicationName": "postgresql-prep",
     "debian": {
-        "groupId": "org.openecomp.dcae.storage.pgaas",
+        "conflicts": [],
         "externalDependencies": [
             {
                 "cdf": ">= 1.1.0"
             }
         ],
-        "replaces": [],
-        "conflicts": []
+        "groupId": "org.openecomp.dcae.storage.pgaas",
+        "replaces": []
     },
-    "version": "1.1.0",
+    "description": " PostgreSQL as a Service main scripts ",
     "directoryTreeTops": {
         "/opt": "/opt/app/postgresql-prep"
-    }
+    },
+    "docker": {
+        "externalDependencies": [],
+        "tag": "latest"
+    },
+    "executionGroup": "root",
+    "executionUser": "root",
+    "fileGroup": "root",
+    "fileUser": "root",
+    "groupId": "org.openecomp.dcae.storage.pgaas",
+    "internalDependencies": [],
+    "maintainer": "OpenECOMP <dcae@lists.openecomp.org>",
+    "version": "1.1.0"
 }

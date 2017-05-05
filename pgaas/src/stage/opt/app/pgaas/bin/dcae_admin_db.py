@@ -121,6 +121,7 @@ def usage(msg = None):
     print("dcae_admin_db.py [options] suspend")
     print("dcae_admin_db.py [options] resume")
     print("dcae_admin_db.py [options] test")
+    print("dcae_admin_db.py [options] newdb dbname admin-pswd user-pswd viewer-pswd")
     print("")
     print("options:")
     print("-H / --dbhost= - host name, defaults to CFG['dcae_admin_db_hostname']")
@@ -282,6 +283,10 @@ def main():
         if len(args) != 1:
             usage("too many arguments")
         testOperations(keyedOptions)
+    elif args[0] == "newdb":
+        if len(args) != 5:
+            usage("wrong number of arguments")
+        newDb(keyedOptions, args[1], args[2], args[3], args[4])
     else:
         usage("unrecognized operation '%s'" % args[0])
 
@@ -313,11 +318,14 @@ def testOperations(options):
     ret = runProgram(cmd)
     # pg_ctl: no server running
     # pg_ctl: server is running (PID: 13988)
+    # does /var/run/postgresql/inmaintenance exist? -> YELLOW
     cmdRepmgr = ["pgrep", "repmgrd"]
     retRepmgr = runProgram(cmdRepmgr)
     
     msg = "????"
-    if re.search("no server running", ret):
+    if os.path.isfile("/var/run/postgresql/inmaintenance"):
+        msg = "YELLOW: in maintenance mode"
+    elif re.search("no server running", ret):
         msg = "RED: no PG server running"
     elif re.search("server is running", ret) and re.search("[0-9]+", retRepmgr):
         msg = "GREEN"
@@ -377,6 +385,13 @@ def configurationChanged(options, jsonFile):
         if verbose:
             dumpJSON(inp, "modified JSON")
 
+    setupJsonDatabases(options, inp)
+
+def setupDictionaryDatabases(options, inp):
+    """
+    Set up the databases listed in the dictionary
+    """
+
     # trace("version=%s" % requireJSON("version", inp, "version"))
     requireJSON("databases", inp, "databases")
     con = None
@@ -391,6 +406,63 @@ def configurationChanged(options, jsonFile):
         if con:
             con.commit()
             con.close()
+
+def newDb(options, dbName, adminPswd, userPswd, viewerPswd):
+    """
+    Given the database name and passwords, set up a database and corresponding users.
+    For example, with dbname="foo", adminPswd="fooa", userPswd="foou" and viewerPswd="foov",
+    act the same as if we had received the json configuration:
+        {
+            'databases': {
+                'foo': {
+                    'ownerRole': 'foo_admin',
+                    'roles': {
+                        'foo_admin': {
+                            'password': 'fooa',
+                            'role': 'admin'
+                        },
+                        'foo_user': {
+                            'password': 'foou',
+                            'role': 'writer'
+                        },
+                        'foo_viewer': {
+                            'password': 'foov',
+                            'role': 'reader'
+                        }
+                    }
+                }
+            }
+        }
+    """
+    if not re.match("^[A-Za-z][A-Za-z0-9_]*$", dbName):
+        errorPrint("'%s' is not a valid database name" % dbName)
+        return
+
+    adminName = dbName + "_admin"
+    userName = dbName + "_user"
+    viewerName = dbName + "_viewer"
+
+    setupDictionaryDatabases(options, {
+            'databases': {
+                dbName: {
+                    'ownerRole': adminName,
+                    'roles': {
+                        adminName: {
+                            'password': adminPswd,
+                            'role': 'admin'
+                        },
+                        userName: {
+                            'password': userPswd,
+                            'role': 'writer'
+                        },
+                        viewerName: {
+                            'password': viewerPswd,
+                            'role': 'reader'
+                        }
+                    }
+                }
+            }
+        })
 
 def dumpJSON(js, msg):
         tracePrint("vvvvvvvvvvvvvvvv %s" % msg)

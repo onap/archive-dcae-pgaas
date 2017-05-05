@@ -17,7 +17,7 @@ P=/opt/cdf
 CDF=/opt/app/cdf
 
 export PATH=/opt/java/jdk/jdk170/bin:$PATH
-export CLASSPATH=$CDF/lib/cdf-prop-value-1.0.0.jar:$CDF/lib/jars/cdf-util-1.0.0.jar
+export CLASSPATH=$CDF/lib/cdf-prop-value.jar:$CDF/lib/jars/cdf-util.jar
 if [ -f $CDF/lib/jars/gnu_getopt.jar ]
 then CLASSPATH=$CLASSPATH:$CDF/lib/jars/gnu_getopt.jar ]
 elif [ -f /usr/share/java/gnu-getopt.jar ]

@@ -31,13 +31,9 @@ stage: clean-stage
 	cp -p repackage.* $(INS)
 
 
-debian-verify: stage
-	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) 
-	@echo debian verify built
-
 debian: stage
 	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u
-	# repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u -B LATEST
+	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u -B LATEST
 	@echo debian built
 
 upload-javadocs: 

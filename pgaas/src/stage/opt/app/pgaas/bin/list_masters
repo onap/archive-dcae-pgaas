@@ -27,17 +27,53 @@ else CFGDIR=/opt/app/postgresql-config/
 fi
 PATH=$PGDIR/bin:$CDF/bin:/opt/app/pgaas/bin:/opt/app/postgresql-prep/bin:$PATH
 
+usage()
+{
+    exec 1>&2
+    [ $# -gt 0 ] && echo "$@"
+    echo "Usage: $0 [-r] [-v]"
+    echo -e " -r          check /ro instead of /rw"
+    echo -e " -v          verbose"
+    exit 1
+}
+
+VERBOSE=false
+CMD=rw
+QUIET=--quiet
+OUTPUT=-O/dev/null
+while getopts rvQ c
+do
+    case "$c" in
+	r ) CMD=ro ;;
+	Q ) QUIET= OUTPUT= ;;
+	v ) VERBOSE=: ;;
+	\?) usage ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
 # loop through the nodes in the cluster, using pgwget to determine if any are a master. Save in $@
 for i in $(getpropvalue -n pgnodes | sed 's/|/ /g')
 do
-    if pgwget --quiet -O/dev/null http://$i:8000/rw
+    $VERBOSE && echo -n "Checking $i"
+    if pgwget $QUIET $OUTPUT http://$i:8000/$CMD
     then set -- "$@" $i
     fi
 done
 
 echo "$@"
-case $# in
-    1 ) exit 0 ;;	# one master exists and is running
-    0 ) exit 1 ;;	# no masters exist
-    * ) exit 2 ;;	# more than one master exist
+case "$CMD" in
+    rw )
+        case $# in
+	    1 ) exit 0 ;;	# one master exists and is running
+	    0 ) exit 1 ;;	# no masters exist
+	    * ) exit 2 ;;	# more than one master exist
+	esac
+	;;
+    ro )
+        case $# in
+	    0 ) exit 1 ;;	# no masters exist
+	    * ) exit 0 ;;	# one or more masters+secondaries exist
+	esac
+	;;
 esac

@@ -37,23 +37,32 @@ id
 umask 022
 
 TMP=$( mktemp /tmp/pgprep.$$.XXXXXXXXXX )
-#### TODO remove comment     trap 'rm -f $TMP' 0 1 2 3 15
+trap 'rm -f $TMP' 0 1 2 3 15
 
 if $OPENECOMP
 then INSTALL_ROOT=
 fi
 
-if [ -f /tmp/postgres.conf ]
-then
+CONFDIR=/var/config/DCAE/chef
+CONFCOUNT=$(ls $CONFDIR/*-postgres.conf 2>/dev/null | wc -l)
+case "$CONFCOUNT" in
+1 )
+    # master: masternode
+    # master2: secondmasternode
+    # in DCAE, these values could be in postgres.conf or already in the environment
     # DRTR_NODE_KSTOREFILE: /opt/app/dcae-certificate/keystore.jks
     # DRTR_NODE_KSTOREPASS: "No Certificate"
     # DRTR_NODE_PVTKEYPASS: "No Certificate"
     # PG_NODES : uiopmno1qwpstg00.research.example.com|asbczw1vepstg00.dcae.simpledemo.openecomp.org
     # PG_JAVA_HOME : /opt/app/java/jdk/jdk170
     # PG_CLUSTER : global
-    sed -e 's/ *: */="/' -e 's/$/"/' -e 's/=""/="/' -e 's/""$/"/' < /tmp/postgres.conf > $TMP
+    sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' < /tmp/postgres.conf > $TMP
     . $TMP
-fi
+    ;;
+0 ) ;;
+* )
+    die "More than one postgres.conf was found: $(ls $CONFDIR/*-postgres.conf 2>&1)"
+esac
 
 [ -n "$PG_NODES" ] || die "PG_NODES is not set"
 [ -n "$PG_CLUSTER" ] || die "PG_CLUSTER is not set"
@@ -88,7 +97,9 @@ chown -R postgres:postgres ${INSTALL_ROOT}/dbroot ${INSTALL_ROOT}/var/run/postgr
 chmod 711 ~postgres
 
 # fix up the CDF package so that it works
-ln -sf /opt/app/cdf /opt/cdf
+if [ ! -L /opt/cdf ]
+then rm -f /opt/cdf; ln -sf /opt/app/cdf /opt/cdf
+fi
 
 # and save some values within
 (

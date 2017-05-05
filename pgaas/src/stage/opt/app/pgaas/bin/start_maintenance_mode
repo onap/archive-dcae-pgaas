@@ -1,0 +1,48 @@
+#!/bin/bash
+# Copyright (C) 2017 AT&T Intellectual Property. All rights reserved. 
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this code except in compliance
+# with the License. You may obtain a copy of the License
+# at http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software  
+# distributed under the License is distributed on an "AS IS" BASIS,  
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or  
+# implied. See the License for the specific language governing  
+# permissions and limitations under the License. 
+
+PATH=/opt/app/pgaas/bin:/opt/app/postgresql-prep/bin:$PATH
+
+INMAINTENANCE=/var/run/postgresql/inmaintenance
+ISRW=/var/run/postgresql/isrw
+
+if [ -f $INMAINTENANCE ]
+then
+    echo "Already in maintenance mode" 1>&2
+    exit 1
+fi
+
+case `< $ISRW` in
+    Master ) echo "This is a Master system. It cannot be set to maintenance mode" 1>&2
+	exit 2
+	;;
+esac
+
+echo "Setting maintenance mode"
+echo inmaintenance > $INMAINTENANCE
+
+echo "Shutting down the PostgreSQL server"
+pg_ctl_stop
+
+# the following loop is to allow iDNS to get a chance to mark this system as being down
+echo "Sleeping for 20 seconds"
+for i in `seq 20`
+do
+    echo -n "  $i"
+done
+echo "  Done"
+
+
+    
+

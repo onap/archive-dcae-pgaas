@@ -14,7 +14,10 @@
 .SH NAME
 check_cluster - check the state of the cluster
 .SH SYNOPSIS
-check_cluster [-v] [-l] [-t timeout]
+check_cluster [-d file] [-v] [-l] [-t timeout]
+.HP 20
+-d file
+duplicate the status output to the given file
 .HP 20
 -l
 do not check localhost first (and restarting the service if necessary)
@@ -25,10 +28,13 @@ set how long to wait when accessing the servers
 -v
 verbose
 .SH DESCRIPTION
-Loop through the nodes in the cluster, using pgwget to determine how many are masters, secondaries, or not up.
+Loop through the nodes in the cluster, using pgwget to determine how many are
+masters, secondaries, in maintenance, or not up.
 Complain about certain situations.
 If there are multiple masters, and this not the first master in the list, then:
 
 run pg_ctl_restart
 
-prevent /ro from returning true
+to prevent /ro from returning true
+.PP
+When \-d is used, the filename will have ".tmp" appended, writing the output to that temp filename, and then renaming the ".tmp" file to the given filename.

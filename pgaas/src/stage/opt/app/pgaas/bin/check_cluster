@@ -23,7 +23,7 @@
 #	-v          verbose
 #
 # DESCRIPTION
-#	Loop through the nodes in the cluster, using pgwget to determine how many are masters, secondaries, or not up.
+#	Loop through the nodes in the cluster, using pgwget to determine how many are masters, secondaries, down for maintenance, or not up.
 #	Complain about certain situations.
 #	If there are multiple masters, and this not the first master in the list, then:
 #		run pg_ctl_restart
@@ -44,19 +44,22 @@ usage()
 {
     exec 1>&2
     [ $# -gt 0 ] && echo "$@"
-    echo "Usage: $0 [-v] [-l] [-t timeout]"
+    echo "Usage: $0 [-v] [-l] [-t timeout] [-d file]"
     echo -e " -l          do not check localhost first (and restarting the service if necessary)"
     echo -e " -t timeout  set how long to wait when accessing the servers"
     echo -e " -v          verbose"
+    echo -e " -d file     duplicate the status output to the given file"
     exit 1
 }
 
 VERBOSE=false
 TIMEOUT=10
 TESTLOCAL=:
-while getopts lt:v c
+DFILE=
+while getopts d:lt:v c
 do
     case "$c" in
+	d ) DFILE=$OPTARG ;;
 	l ) TESTLOCAL=false ;;
 	t ) TIMEOUT=$OPTARG ;;
 	v ) VERBOSE=: ;;
@@ -70,13 +73,16 @@ master_count=0
 secondary_count=0
 total_count=0
 down_count=0
+maintenance_count=0
 
-DOWNS=
 MASTERS=
 SECONDARIES=
+MAINTENANCES=
+DOWNS=
 
 MSEP=
 SSEP=
+BSEP=
 DSEP=
 HOSTNAME=$(hostname -f)
 FOUNDPREVIOUSMASTER=
@@ -86,7 +92,7 @@ if $TESTLOCAL
 then
     isrw=`pgwget --tries=1 --read-timeout=$TIMEOUT --quiet -O/dev/stdout http://localhost:8000/isrw`
     case "$isrw" in
-	Master | Secondary ) ;;
+	Master | Secondary | Maintenance ) ;;
 	* ) 
 	    echo "$(date)|WARNING|RESTARTED|Local iDNS-responder.py not responding. Restarting."
 	    ps -fu postgres | grep "python3 /opt/app/postgresql-prep/bin/iDNS-responder.py" | grep -v grep | awk '{print "kill " $2}' | sh
@@ -118,6 +124,12 @@ do
 	    SECONDARIES="$SECONDARIES$SSEP$i"
 	    SSEP=" "
 	    ;;
+	Maintenance )
+	    (( maintenance_count = maintenance_count + 1 ))
+	    (( total_count = total_count + 1 ))
+	    MAINTENANCES="$MAINTENANCES$BSEP$i"
+	    BSEP=" "
+	    ;;
 	* )
 	    DOWNS="$DOWNS$DSEP$i"
 	    DSEP=" "
@@ -130,7 +142,11 @@ done
 (( up_count = master_count + secondary_count ))
 
 date=$(date)
-echo "$date|INFO|masters=$master_count $MASTERS|secondaries=$secondary_count $SECONDARIES|down=$down_count $DOWNS|"
+output="$date|INFO|masters=$master_count $MASTERS|secondaries=$secondary_count $SECONDARIES|maintenance=$maintenance_count $MAINTENANCES|down=$down_count $DOWNS|"
+echo "$output"
+if [ -n "$DFILE" ]
+then (umask 022; echo "$output" > $DFILE.tmp && mv $DFILE.tmp $DFILE)
+fi
 
 FORCEROOFF=/var/run/postgresql/force-ro-off
 if [ $master_count -lt 1 ]

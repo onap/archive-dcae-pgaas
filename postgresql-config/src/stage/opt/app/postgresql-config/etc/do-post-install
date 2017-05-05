@@ -40,38 +40,41 @@ $CFGDIR/etc/makecerts
 cat $CFGDIR/lib/profile.additions >> ~postgres/.profile
 
 # Determine which system is the master.
-# For central, we look first in /tmp/postgres.conf. 
+# For central, we look first in /var/config/DCAE/chef/*-postgres.conf. 
 #	If we don't find that, we look at the pgnodes list and pick the first one.
-# For edge, we ignore /tmp/postgres.conf and go directly to the pgnodes list. 
+# For edge, we ignore /var/config/DCAE/chef/*-postgres.conf and go directly to the pgnodes list. 
 #	Each edge site has its own master.
 clustertype=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -n cluster )
 ismaster=no
 
 case $clustertype in
     central )
-        CONF=/tmp/postgres.conf
-	if [ -f $CONF ] # OpenDCAE
-	then
+	CONFDIR=/var/config/DCAE/chef
+	CONFCOUNT=$(ls $CONFDIR/*-postgres.conf 2>/dev/null | wc -l)
+	case "$CONFCOUNT" in
+	1 ) # OpenDCAE
 	    umask 077
 	    TMP=$(mktemp /tmp/tmp.pi1.XXXXXXXXXX)
 	    trap 'rm -f $TMP' 0 1 2 3 15
-	    sed -e 's/ *: */="/' -e 's/$/"/' -e 's/=""/="/' -e 's/""$/"/' < $CONF > $TMP
+	    sed -e 's/ *: */="/' -e 's/ *$/"/' -e 's/=""/="/' -e 's/""$/"/' < $CONFDIR/*-postgres.conf > $TMP
 	    . $TMP
 	    case `hostname` in
-	        $master ) ismaster=yes ;;
+		$master ) ismaster=yes ;;
 		*?* ) ismaster=no ;;
 		'' ) die "master is not set in $CONF"
 	    esac
 	    PGNODES=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -n pgnodes )
 	    export MASTER=$( gen-repmgr-info -n "$PGNODES" -M "$master" )
 	    [ -n "$MASTER" ] || die "Cannot determine master system. $CONF has '$master' (from env.yaml), which cannot be found in pgnodes."
-
-	else
-	    # not OpenDCAE
+	    ;;
+	0 ) # not OpenDCAE
 	    ismaster=yes
 	    PGNODES=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -n pgnodes )
 	    export MASTER=$( gen-repmgr-info -n "$PGNODES" -m )
-	fi
+	    ;;
+	* ) die "More than one postgres.conf was found: $(ls $CONFDIR/*-postgres.conf 2>&1)"
+	    ;;
+	esac
 	;;
     edge )
         host=$( hostname -f )
@@ -85,6 +88,10 @@ case $clustertype in
 esac
 
 ssh_and_cdf_okay=no
+
+if pgrep postgres
+then pkill postgres
+fi
 
 case $ismaster in
     yes ) # master

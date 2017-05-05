@@ -1,0 +1,68 @@
+# Example YAML to get you started quickly.
+# Be aware that YAML has indentation based scoping.
+# Code completion support is available so start typing for available options.
+swagger: '2.0'
+
+# This is your document metadata
+info:
+  version: "1.1.0"
+  title: PostgreSQL as a Service REST API
+
+# Describe your paths here
+paths:
+  # This is a path endpoint. Change it.
+  /rw:
+    # This is a HTTP operation
+    get:
+      # Describe this verb here. Note: you can use markdown
+      description: |
+        Gets a string indicating if this is a PostgreSQL Master server
+      # Expected responses for this operation:
+      responses:
+        # Response code
+        200:
+          description: Successful response
+          # A schema describing your response object.
+          # Use JSON Schema format
+          schema:
+            title: status
+            type: string
+  /ro:
+    # This is a HTTP operation
+    get:
+      # Describe this verb here. Note: you can use markdown
+      description: |
+        Gets a string indicating if this is either a PostgreSQL Master or Secondary server
+      # Expected responses for this operation:
+      responses:
+        # Response code
+        200:
+          description: Successful response
+          # A schema describing your response object.
+          # Use JSON Schema format
+          schema:
+            title: status
+            type: string
+  /healthcheck/status:
+    # This is a HTTP operation
+    get:
+      # Describe this verb here. Note: you can use markdown
+      description: |
+        Gets a string indicating the status of this server
+      # Expected responses for this operation:
+      responses:
+        # Response code
+        200:
+          description: Successful response
+          # A schema describing your response object.
+          # Use JSON Schema format
+          schema:
+            title: output
+            type: string
+        429:
+          description: Error response
+          # A schema describing your response object.
+          # Use JSON Schema format
+          schema:
+            title: output
+            type: string

@@ -28,9 +28,10 @@ usage()
     b=$(basename $0)
     echo "Usage: $b [-v]"
     echo "$b runs a variety of tests on the PG VM and database"
-    echo "It must be run as root or postgres."
+    echo "It should be run as root or postgres."
     echo "If run as root, it will do additional tests that are"
-    echo "not possible as a normal user."
+    echo "not possible as a normal user. If not run as root or"
+    echo "postgres, other tests may fail."
     echo " -v verbose"
     echo " -P do not print VERIFIED"
     exit 1
@@ -52,7 +53,7 @@ ROOT=false
 case `id` in
     *"(root)"* ) ROOT=true ;;
     *"(postgres)"* )  ;;
-    * ) echo "$0 must be run as either root or postgres" ;;
+    * ) echo "$0 should be run as either root or postgres" ;;
 esac
 
 VERIFIEDCOUNT=0
@@ -154,7 +155,16 @@ if [ -s /lib/systemd/system/pgaas-idns.service ]
 then verified "found pgaas-idns service properly installed for Ubuntu 16"
 elif [ -s /etc/init/pgaas-init.conf ]
 then verified "found pgaas-idns service properly installed for Ubuntu 14"
-else failed "pgaas-idns service has not bee installed properly"
+else failed "pgaas-idns service has not been installed properly"
+fi
+
+if ps -ef | grep '[i]DNS-responder' > /dev/null
+then verified "iDNS-responder is running"
+    if ps -fu postgres | grep '[i]DNS-responder' > /dev/null
+    then verified "iDNS-responder is running as postgres"
+    else failed "iDNS-responder is running, but not as postgres"
+    fi
+else failed "postgres does not have a logger process running"
 fi
 
 if [ -d /var/run/postgresql ]
@@ -173,7 +183,7 @@ fi
 ################       postgresql-config        ################
 ################################################################
 
-if ps -fu postgres | grep "postgres: logger process" > /dev/null
+if ps -fu postgres | grep "[p]ostgres: logger process" > /dev/null
 then verified "postgres is running"
 else failed "postgres does not have a logger process running"
 fi
@@ -203,11 +213,6 @@ then
     esac
 else
     failed "/opt/app/pgaas/bin/runpsqll is not installed"
-fi
-
-if ps -ef | grep python3 | grep iDNS-responder.py > /dev/null
-then verified "iDNS-responder.py is running"
-else failed "iDNS-responder.py is not running"
 fi
 
 if [ -f /opt/app/pgaas/bin/check_cluster ]

@@ -29,4 +29,5 @@ die()
 [ -n "$CFGDIR" ] || die "CFGDIR is not set"
 
 rm -f $DBROOT/postmaster.pid
+chmod 600 $CFGDIR/lib/*.key
 $PGDIR/bin/pg_ctl start -D $DBROOT -o "-c config_file=$CFGDIR/main/postgresql.conf"

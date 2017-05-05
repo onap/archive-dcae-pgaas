@@ -31,25 +31,23 @@ javadocs:
 stage: build clean-stage clean-common
 	mkdir -p $(INS)
 	find stage common ! -name makefile ! -name '*~' | cpio -pudmv $(INS)
-	cp cdf-prop-value/cdf-prop-value/src/main/java/cdf-prop-value.jar $(INS)/stage/opt/app/cdf/lib/cdf-prop-value-1.0.0.jar
-	cp cdf-prop-value/cdf-util/src/main/java/cdf-util.jar $(INS)/stage/opt/app/cdf/lib/jars/cdf-util-1.0.0.jar
+	cp -p cdf-prop-value/cdf-prop-value/src/main/java/cdf-prop-value.jar $(INS)/stage/opt/app/cdf/lib/cdf-prop-value-1.1.0.jar
+	cp -p cdf-prop-value/cdf-prop-value/src/main/java/cdf-prop-value.jar $(INS)/stage/opt/app/cdf/lib/cdf-prop-value.jar
+	cp -p cdf-prop-value/cdf-util/src/main/java/cdf-util.jar $(INS)/stage/opt/app/cdf/lib/jars/cdf-util-1.1.0.jar
+	cp -p cdf-prop-value/cdf-util/src/main/java/cdf-util.jar $(INS)/stage/opt/app/cdf/lib/jars/cdf-util.jar
 	chmod a+x $(INSCOM)/*
 	cp -p repackage.* $(INS)
 
 
-debian-verify: stage
-	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) 
-	@echo debian verify built
-
 debian: stage
 	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u
-	# repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u -B LATEST
+	repackage -b debian $(REPACKAGEDEBIANOPTS) -d $(INS) -u -B LATEST
 	@echo debian built
 
 
 upload-javadocs: javadocs
 	cd cdf-prop-value && find cdf-*/src/main/java/javadoc -type f | while read f; do \
-		curl -k --user "$${OPENECOMP_NEXUS_USER}:$${OPENECOMP_NEXUS_PASSWORD}" --upload-file "$$f" "$${OPENECOMP_NEXUS_JAVADOC}/org.openecomp.dcae.storage.cdf/1.0.0/$$f"; \
+		curl -k --user "$${OPENECOMP_NEXUS_USER}:$${OPENECOMP_NEXUS_PASSWORD}" --upload-file "$$f" "$${OPENECOMP_NEXUS_JAVADOC}/org.openecomp.dcae.storage.cdf/1.1.0/$$f"; \
 	done
 	# OPENECOMP_NEXUS_JAVADOC https://ecomp-nexus:8443/repository/dcae-javadoc/
 	# https://162.242.254.138:8443/#browse/browse/components:dcae-javadoc

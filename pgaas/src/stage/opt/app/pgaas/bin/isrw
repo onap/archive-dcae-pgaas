@@ -22,7 +22,12 @@ fi
 
 export PATH=$PATH:/opt/java/jdk/jdk170/bin:/opt/app/cdf/bin:/opt/app/pgaas/bin:$PATH
 
-case `show_pg_is_in_recovery` in
-    *f* ) echo "Master" ;;
-    *t* ) echo "Secondary" ;;
-esac
+if [ -f /var/run/postgresql/inmaintenance ]
+then
+    echo "Maintenance"
+else
+    case `show_pg_is_in_recovery` in
+	*f* ) echo "Master" ;;
+	*t* ) echo "Secondary" ;;
+    esac
+fi

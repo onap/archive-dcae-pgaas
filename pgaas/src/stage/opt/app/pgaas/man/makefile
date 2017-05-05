@@ -93,5 +93,9 @@ show_pg_stat_user_tables.1: show_pg_stat_user_tables.man
 	DATE=$$(date +%Y-%m-%d); sed "1s/ {{DATE}} / $$DATE /" < $< | nroff -Tlp -man > $@
 startpsql.1: startpsql.man
 	DATE=$$(date +%Y-%m-%d); sed "1s/ {{DATE}} / $$DATE /" < $< | nroff -Tlp -man > $@
+start_maintenance_mode.1: start_maintenance_mode.man
+	DATE=$$(date +%Y-%m-%d); sed "1s/ {{DATE}} / $$DATE /" < $< | nroff -Tlp -man > $@
+stop_maintenance_mode.1: stop_maintenance_mode.man
+	DATE=$$(date +%Y-%m-%d); sed "1s/ {{DATE}} / $$DATE /" < $< | nroff -Tlp -man > $@
 update_var_run_isrw.1: update_var_run_isrw.man
 	DATE=$$(date +%Y-%m-%d); sed "1s/ {{DATE}} / $$DATE /" < $< | nroff -Tlp -man > $@

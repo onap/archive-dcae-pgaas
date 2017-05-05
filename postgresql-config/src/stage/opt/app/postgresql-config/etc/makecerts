@@ -51,6 +51,8 @@ usage()
     exit 1
 }
 
+set -x
+
 if [ -f "$libdir/ssl-cert-snakeoil.pem" ] && [ -f "$libdir/ssl-cert-snakeoil.key" ]; then
     if [ "$1" != "--force-overwrite" ]; then
 	 exit 0
@@ -82,6 +84,8 @@ trap "rm -f $TMPFILE $TMPOUT" EXIT 1 2 3 15
     [ -z "$AltName" ] || echo "subjectAltName=$AltName" >> $TMPFILE
 
 # create the certificate.
+
+umask 077
 
 if ! openssl req -config $TMPFILE -new -x509 -days 3650 -nodes \
     -out $libdir/ssl-cert-snakeoil.pem \

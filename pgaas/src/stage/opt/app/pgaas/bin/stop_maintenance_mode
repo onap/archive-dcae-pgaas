@@ -12,23 +12,17 @@
 # implied. See the License for the specific language governing  
 # permissions and limitations under the License. 
 
+PATH=/opt/app/pgaas/bin:/opt/app/postgresql-prep/bin:$PATH
 
-# create ~postgres/.pgpass
-postgrespswd=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -x -n postgres )
-repmgrpswd=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -x -n repmgr )
-umask 077
-pswdfile=~postgres/.pgpass
-if [ -f $pswdfile ]
+INMAINTENANCE=/var/run/postgresql/inmaintenance
+
+if [ ! -f $INMAINTENANCE ]
 then
-    ed $pswdfile <<-EOF
-	H
-	g/:postgres:/d
-	g/:repmgr:/d
-	w
-	q
-	EOF
+    echo "Not in maintenance mode" 1>&2
+    exit 1
 fi
 
-echo "*:*:*:postgres:$postgrespswd" >> $pswdfile
-echo "*:*:*:repmgr:$repmgrpswd" >> $pswdfile
-chmod 600 $pswdfile
+echo "Restarting PostgreSQL server"
+pg_ctl_start
+echo "Returning server to normal rotation"
+rm -f $INMAINTENANCE
