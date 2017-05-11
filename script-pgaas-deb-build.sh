@@ -30,6 +30,7 @@ PASS=$(xpath -q -e \
 # Create a netrc file for use with curl
 export NETRC=$(mktemp)
 echo "machine nexus.openecomp.org login ${USER} password ${PASS}" > "${NETRC}"
+echo "machine nexus.onap.org login ${USER} password ${PASS}" >> "${NETRC}"
 
 case "$phase" in
 	verify|merge ) REPO="${NEXUS_RAW}/org.openecomp.dcae.pgaas/deb-snapshots" ;;
