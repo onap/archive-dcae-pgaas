@@ -56,7 +56,7 @@ case "$CONFCOUNT" in
     # PG_NODES : uiopmno1qwpstg00.research.example.com|asbczw1vepstg00.dcae.simpledemo.openecomp.org
     # PG_JAVA_HOME : /opt/app/java/jdk/jdk170
     # PG_CLUSTER : global
-    sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' < /tmp/postgres.conf > $TMP
+    cat $CONFDIR/*-postgres.conf | sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' > $TMP
     . $TMP
     ;;
 0 ) ;;
@@ -84,11 +84,17 @@ chmod 700 ${INSTALL_ROOT}/dbroot/pgdata/main
 
 if $OPENECOMP
 then
-    mv /var/lib/postgresql/9.5/main /var/lib/postgresql/9.5/main.sv
-    ln -s /dbroot/dbdata/main /var/lib/postgresql/9.5/main
+    if [ -d /var/lib/postgresql/9.5 ]
+    then VER=9.5
+    elif [ -d /var/lib/postgresql/9.6 ]
+    then VER=9.6
+    else die "Cannot determine version of PostgreSQL. Looking for /var/lib/postgresql/9.[56]."
+    fi
+    mv /var/lib/postgresql/$VER/main /var/lib/postgresql/$VER/main.sv
+    ln -s /dbroot/dbdata/main /var/lib/postgresql/$VER/main
 
-    mv /etc/postgresql/9.5/main /etc/postgresql/9.5/main.sv
-    ln -s /opt/app/postgresql-config/main /etc/postgresql/9.5/main
+    mv /etc/postgresql/$VER/main /etc/postgresql/$VER/main.sv
+    ln -s /opt/app/postgresql-config/main /etc/postgresql/$VER/main
 
 fi
 
@@ -135,7 +141,7 @@ fi
 
 INIT=${INSTALL_ROOT}/opt/app/postgresql-prep/init
 
-if $OPENECOMP
+if [ -d /lib/systemd/system -a -f /bin/systemctl ]
 then
     su postgres -c "crontab $INIT/pglogs.cron"
 

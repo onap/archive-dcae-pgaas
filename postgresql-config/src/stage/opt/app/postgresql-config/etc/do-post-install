@@ -28,10 +28,15 @@ die()
 [ -n "$OPENECOMP" ] || die "OPENECOMP is not set"
 [ -n "$NOTOPENECOMP" ] || die "NOTOPENECOMP is not set"
 
-if $OPENECOMP
-then export PGDIR=${INSTALL_ROOT}/usr/lib/postgresql/9.5
-else export PGDIR=${INSTALL_ROOT}/opt/app/postgresql-9.5.2
+if [ -d ${INSTALL_ROOT}/opt/app/postgresql-9.5.2 ]
+then PGDIR=${INSTALL_ROOT}/opt/app/postgresql-9.5.2
+elif [ -d ${INSTALL_ROOT}/usr/lib/postgresql/9.6 ]
+then PGDIR=${INSTALL_ROOT}/usr/lib/postgresql/9.6
+elif [ -d ${INSTALL_ROOT}/usr/lib/postgresql/9.5 ]
+then PGDIR=${INSTALL_ROOT}/usr/lib/postgresql/9.5
+else die PostgreSQL bin directory not found
 fi
+export PGDIR
 export DBROOT=/dbroot/pgdata/main
 export PATH=$PATH:${INSTALL_ROOT}/opt/app/postgresql-prep/bin
 

@@ -49,7 +49,7 @@ ident_file = '%CFGDIR%/main/pg_ident.conf'	# for DCAE
 					# (change requires restart)
 
 # If external_pid_file is not explicitly set, no extra PID file is written.
-external_pid_file = '/var/run/postgresql/9.5-main.pid'			# for DCAE
+external_pid_file = '/var/run/postgresql/main.pid'			# for DCAE
 #external_pid_file = ''			# write an extra PID file
 					# (change requires restart)
 

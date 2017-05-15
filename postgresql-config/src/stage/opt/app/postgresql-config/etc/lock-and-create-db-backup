@@ -15,7 +15,11 @@
 
 if [ -d /opt/app/postgresql-9.5.2 ]
 then PGDIR=${INSTALL_ROOT}/opt/app/postgresql-9.5.2
-else PGDIR=/usr/lib/postgresql/9.5
+elif [ -d /usr/lib/postgresql/9.6 ]
+then PGDIR=/usr/lib/postgresql/9.6
+elif [ -d /usr/lib/postgresql/9.5 ]
+then PGDIR=/usr/lib/postgresql/9.5
+else echo PostgreSQL bin directory not found
 fi
 
 export PATH=$PGDIR/bin:${INSTALL_ROOT}/opt/java/jdk/jdk170/bin:${INSTALL_ROOT}/opt/app/cdf/bin:${INSTALL_ROOT}/opt/app/pgaas/bin:$PATH

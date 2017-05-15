@@ -13,11 +13,15 @@
 # permissions and limitations under the License. 
 
 
-if [ -d /usr/lib/postgresql/9.5/bin ]
-then PATH=$PATH:/usr/lib/postgresql/9.5/bin
-elif [ -d /opt/app/postgresql-9.5.2/bin ]
-then PATH=$PATH:/opt/app/postgresql-9.5.2/bin
-else echo "$0: Cannot find PostgreSQL bin" 1>&2; exit 1
+if [ -d /opt/app/postgresql-9.5.2 ]
+then PGDIR=/opt/app/postgresql-9.5.2
+elif [ -d /usr/lib/postgresql/9.6 ]
+then PGDIR=/usr/lib/postgresql/9.6
+elif [ -d /usr/lib/postgresql/9.5 ]
+then PGDIR=/usr/lib/postgresql/9.5
+else echo PostgreSQL bin directory not found 1>&2; exit 1
 fi
+
+export PATH=$PATH:$PGDIR/bin
 
 pg_ctl stop -D /dbroot/pgdata/main/

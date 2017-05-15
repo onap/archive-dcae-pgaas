@@ -258,12 +258,15 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
         Then call ps -fu postgres and make sure we're not waiting on a master:
         postgres  20815  20812  0 15:52 ?        00:00:00 postgres: startup process   waiting for 000000010000000000000001
         """
-        PGCTLPATH1 = "/usr/lib/postgresql/9.5/bin/pg_ctl"
-        PGCTLPATH2 = "/opt/app/postgresql-9.5.2/bin/pg_ctl"
+        PGCTLPATH1 = "/usr/lib/postgresql/9.6/bin/pg_ctl"
+        PGCTLPATH2 = "/usr/lib/postgresql/9.5/bin/pg_ctl"
+        PGCTLPATH3 = "/opt/app/postgresql-9.5.2/bin/pg_ctl"
         if isExe(PGCTLPATH1):
             statusLines = readPipe(PGCTLPATH1 + " status -D /dbroot/pgdata/main/")
-        else:
+        elif isExe(PGCTLPATH2):
             statusLines = readPipe(PGCTLPATH2 + " status -D /dbroot/pgdata/main/")
+        else:
+            statusLines = readPipe(PGCTLPATH3 + " status -D /dbroot/pgdata/main/")
         debugTrace("isServerUp(): statusLines = %s" % statusLines)
         psLines = readPipe("ps -fu postgres")
         debugTrace("isServerUp(): ps -fu postgres = %s" % psLines)
