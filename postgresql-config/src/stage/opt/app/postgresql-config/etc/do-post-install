@@ -55,24 +55,26 @@ ismaster=no
 case $clustertype in
     central )
 	CONFDIR=/var/config/DCAE/chef
-	CONFCOUNT=$(ls $CONFDIR/*-postgres.conf 2>/dev/null | wc -l)
+	CONFDIR2=/tmp
+	CONFCOUNT=$(ls $CONFDIR/*-postgres.conf $CONFDIR2/*-postgres.conf 2>/dev/null | wc -l)
 	case "$CONFCOUNT" in
 	1 ) # OpenDCAE
 	    umask 077
 	    TMP=$(mktemp /tmp/tmp.pi1.XXXXXXXXXX)
 	    trap 'rm -f $TMP' 0 1 2 3 15
-	    sed -e 's/ *: */="/' -e 's/ *$/"/' -e 's/=""/="/' -e 's/""$/"/' < $CONFDIR/*-postgres.conf > $TMP
+	    cat $CONFDIR/*-postgres.conf $CONFDIR2/*-postgres.conf 2>/dev/null |
+		sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' > $TMP
 	    . $TMP
-	    case `hostname` in
-		$master ) ismaster=yes ;;
+	    case "$master" in
+		`hostname` | `hostname -f` ) ismaster=yes ;;
 		*?* ) ismaster=no ;;
-		'' ) die "master is not set in $CONF"
+		'' ) die "master is not set in $CONF" ;;
 	    esac
 	    PGNODES=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -n pgnodes )
 	    export MASTER=$( gen-repmgr-info -n "$PGNODES" -M "$master" )
 	    [ -n "$MASTER" ] || die "Cannot determine master system. $CONF has '$master' (from env.yaml), which cannot be found in pgnodes."
 	    ;;
-	0 ) # not OpenDCAE
+	0 ) # not OpenDCAE/ONAP
 	    ismaster=yes
 	    PGNODES=$( ${INSTALL_ROOT}/opt/app/cdf/bin/getpropvalue -n pgnodes )
 	    export MASTER=$( gen-repmgr-info -n "$PGNODES" -m )
