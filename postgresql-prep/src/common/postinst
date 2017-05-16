@@ -44,7 +44,8 @@ then INSTALL_ROOT=
 fi
 
 CONFDIR=/var/config/DCAE/chef
-CONFCOUNT=$(ls $CONFDIR/*-postgres.conf 2>/dev/null | wc -l)
+CONFDIR2=/tmp
+CONFCOUNT=$(ls $CONFDIR/*-postgres.conf $CONFDIR2/*-postgres.conf 2>/dev/null | wc -l)
 case "$CONFCOUNT" in
 1 )
     # master: masternode
@@ -56,12 +57,13 @@ case "$CONFCOUNT" in
     # PG_NODES : uiopmno1qwpstg00.research.example.com|asbczw1vepstg00.dcae.simpledemo.openecomp.org
     # PG_JAVA_HOME : /opt/app/java/jdk/jdk170
     # PG_CLUSTER : global
-    cat $CONFDIR/*-postgres.conf | sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' > $TMP
+    cat $CONFDIR/*-postgres.conf $CONFDIR2/*-postgres.conf 2>/dev/null |
+	sed -e 's/ *: */="/' -e 's/[ 	]*$/"/' -e 's/=""/="/' -e 's/""$/"/' > $TMP
     . $TMP
     ;;
 0 ) ;;
 * )
-    die "More than one postgres.conf was found: $(ls $CONFDIR/*-postgres.conf 2>&1)"
+    die "More than one postgres.conf was found: $(ls $CONFDIR/*-postgres.conf $CONFDIR2/*-postgres.conf 2>/dev/null)"
 esac
 
 [ -n "$PG_NODES" ] || die "PG_NODES is not set"
