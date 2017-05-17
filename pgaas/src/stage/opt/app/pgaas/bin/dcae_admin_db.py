@@ -385,7 +385,7 @@ def configurationChanged(options, jsonFile):
         if verbose:
             dumpJSON(inp, "modified JSON")
 
-    setupJsonDatabases(options, inp)
+    setupDictionaryDatabases(options, inp)
 
 def setupDictionaryDatabases(options, inp):
     """
