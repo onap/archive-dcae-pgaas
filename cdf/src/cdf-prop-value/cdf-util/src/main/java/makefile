@@ -22,7 +22,7 @@ JAVA=	org/openecomp/dcae/cdf/util/common/Classify.java \
 	org/openecomp/dcae/cdf/util/config/Configurable.java \
 	org/openecomp/dcae/cdf/util/config/ConfigurationRegistry.java \
 	org/openecomp/dcae/cdf/util/threads/TaskThread.java \
-	org/openecomp/dcae/cdf/util/threads/ThreadCommon.java
+	org/openecomp/dcae/cdf/util/threads/ThreadUtils.java
 
 CLASSES=$(JAVA:.java=.class)
 
